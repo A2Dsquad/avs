@@ -1,0 +1,23 @@
+[package]
+name = "oracle-avs"
+version = "1.0.0"
+authors = []
+
+[addresses]
+aptos_framework = "0x1"
+deployer = "_"
+oracle = "_"
+
+[dev-addresses]
+deployer = "0xcafe"
+middleware = "0xabcfff"
+restaking = "0xc3bb8488ab1a5815a9d543d7e41b0e0df46a7396f89b22821f07a4362f75ddc5"
+oracle = "0xab"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
+[dev-dependencies]
+restaking = { git = "https://github.com/A2Dsquad/restaking-contracts", rev = "9dff10c3c3c536f04b8a243719414e39da68c0b7"}
