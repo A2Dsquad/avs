@@ -43,4 +43,6 @@ require (
 
 replace github.com/aptos-labs/aptos-go-sdk => github.com/decentrio/aptos-go-sdk v0.0.0-20240920045305-3e04c7c284c8
 
+replace github.com/decentrio/oracle-avs => ./..
+
 go 1.22.6
