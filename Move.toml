@@ -9,7 +9,7 @@ deployer = "_"
 oracle = "_"
 
 [dev-addresses]
-deployer = "0xcafe"
+deployer = "0xa1d0e45e4c83457be89683fc96052bc34d7fb5f9bf7e5a708e6edcb0c53156bc"
 middleware = "0xabcfff"
 restaking = "0xc3bb8488ab1a5815a9d543d7e41b0e0df46a7396f89b22821f07a4362f75ddc5"
 oracle = "0xab"
