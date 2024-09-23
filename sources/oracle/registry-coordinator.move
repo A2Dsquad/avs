@@ -12,7 +12,7 @@ module oracle::registry_coordinator{
 
     use restaking::staker_manager;
 
-    use oracle::service_manager;
+    use oracle::service_manager_base;
     use oracle::bls_apk_registry;
     use oracle::stake_registry;
     use oracle::index_registry;

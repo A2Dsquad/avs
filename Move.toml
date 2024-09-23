@@ -1,5 +1,5 @@
 [package]
-name = "oracle-avs"
+name = "oracle"
 version = "1.0.0"
 authors = []
 
@@ -7,6 +7,8 @@ authors = []
 aptos_framework = "0x1"
 deployer = "_"
 oracle = "_"
+middleware = "_"
+restaking = "_"
 
 [dev-addresses]
 deployer = "0xa1d0e45e4c83457be89683fc96052bc34d7fb5f9bf7e5a708e6edcb0c53156bc"

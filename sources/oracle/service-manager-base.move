@@ -1,4 +1,4 @@
-module oracle::service_manager{
+module oracle::service_manager_base{
     use aptos_framework::event;
     use aptos_framework::fungible_asset::{
     Self, Metadata,
@@ -24,8 +24,8 @@ module oracle::service_manager{
     use std::vector;
     use std::signer;
 
-    const SERVICE_MANAGER_NAME: vector<u8> = b"SERVICE_MANAGER_NAME";
-    const SERVICE_PREFIX: vector<u8> = b"SERVICE_PREFIX";
+    const SERVICE_MANAGER_BASE_NAME: vector<u8> = b"SERVICE_MANAGER_BASE_NAME";
+    const SERVICE_BASE_PREFIX: vector<u8> = b"SERVICE_BASE_PREFIX";
 
     struct ServiceManagerConfigs has key {
         signer_cap: SignerCapability,
@@ -50,8 +50,8 @@ module oracle::service_manager{
 
         // derive a resource account from signer to manage User share Account
         let oracle_signer = &oracle_manager::get_signer();
-        let (service_manager_signer, signer_cap) = account::create_resource_account(oracle_signer, SERVICE_MANAGER_NAME);
-        oracle_manager::add_address(string::utf8(SERVICE_MANAGER_NAME), signer::address_of(&service_manager_signer));
+        let (service_manager_signer, signer_cap) = account::create_resource_account(oracle_signer, SERVICE_MANAGER_BASE_NAME);
+        oracle_manager::add_address(string::utf8(SERVICE_MANAGER_BASE_NAME), signer::address_of(&service_manager_signer));
         move_to(&service_manager_signer, ServiceManagerConfigs {
             signer_cap,
         });
@@ -60,7 +60,7 @@ module oracle::service_manager{
     #[view]
     public fun is_initialized(): bool{
         // TODO: use a seperate package manager
-        oracle_manager::address_exists(string::utf8(SERVICE_MANAGER_NAME))
+        oracle_manager::address_exists(string::utf8(SERVICE_MANAGER_BASE_NAME))
     }
 
     #[view]
@@ -119,18 +119,18 @@ module oracle::service_manager{
     }
 
     inline fun service_manager_configs(): &ServiceManagerConfigs acquires ServiceManagerConfigs{
-        borrow_global<ServiceManagerConfigs>(service_manager_address())
+        borrow_global<ServiceManagerConfigs>(service_manager_base_address())
     }
 
     inline fun mut_service_manager_configs(): &mut ServiceManagerConfigs acquires ServiceManagerConfigs {
-        borrow_global_mut<ServiceManagerConfigs>(service_manager_address())
+        borrow_global_mut<ServiceManagerConfigs>(service_manager_base_address())
     }
 
-    inline fun service_manager_address(): address {
-        oracle_manager::get_address(string::utf8(SERVICE_MANAGER_NAME))
+    inline fun service_manager_base_address(): address {
+        oracle_manager::get_address(string::utf8(SERVICE_MANAGER_BASE_NAME))
     }
 
     inline fun service_manager_signer(): &signer acquires ServiceManagerConfigs{
-        &account::create_signer_with_capability(&borrow_global<ServiceManagerConfigs>(service_manager_address()).signer_cap)
+        &account::create_signer_with_capability(&borrow_global<ServiceManagerConfigs>(service_manager_base_address()).signer_cap)
     }
 }
