@@ -11,7 +11,7 @@ module oracle::stake_registry{
     use restaking::staker_manager;
 
     use oracle::oracle_manager;
-    use oracle::service_manager;
+    use oracle::service_manager_base;
 
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::smart_vector::{Self, SmartVector};
@@ -33,11 +33,11 @@ module oracle::stake_registry{
     const STAKE_PREFIX: vector<u8> = b"STAKE_PREFIX";
 
 
-    const EUNINITIALZED_QUORUM: u64 = 101;
-    const EMINUMUM_STAKE_REQUIRED: u64 = 102;
-    const ENO_STRATEGY_PROVIED: u64 = 103;
-    const ESAME_STRATEGY_PROVIED: u64 = 104;
-    const EZERO_MULTIPLIER: u64 = 105;
+    const EUNINITIALZED_QUORUM: u64 = 1201;
+    const EMINUMUM_STAKE_REQUIRED: u64 = 1202;
+    const ENO_STRATEGY_PROVIED: u64 = 1203;
+    const ESAME_STRATEGY_PROVIED: u64 = 1204;
+    const EZERO_MULTIPLIER: u64 = 1205;
 
     struct StakeRegistryConfigs has key {
         signer_cap: SignerCapability,

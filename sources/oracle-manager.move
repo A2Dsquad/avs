@@ -10,6 +10,8 @@ module oracle::oracle_manager {
     friend oracle::bls_apk_registry;
     friend oracle::registry_coordinator;
     friend oracle::stake_registry;
+    friend oracle::service_manager_base;
+    friend oracle::fee_pool;
     friend oracle::service_manager;
 
     const OWNER_NAME: vector<u8> = b"OWNER";
