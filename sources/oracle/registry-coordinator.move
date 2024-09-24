@@ -105,7 +105,7 @@ module oracle::registry_coordinator{
     }
 
     // TODO: not done
-    public fun registor_operator(quorum_numbers: vector<u8>, operator: &signer, params: bls_apk_registry::PubkeyRegistrationParams) acquires RegistryCoordinatorStore{
+    public entry fun registor_operator(quorum_numbers: vector<u8>, operator: &signer, params: bls_apk_registry::PubkeyRegistrationParams) acquires RegistryCoordinatorStore{
         let operator_id = get_or_create_operator_id(operator, params);
 
         let (_ , _ , num_operators_per_quorum) = register_operator_internal(operator, operator_id, quorum_numbers);
@@ -282,7 +282,30 @@ module oracle::registry_coordinator{
     }
 
     #[view]
-    public fun get_current_quorum_bitmap(operator_id: vector<u8>): u256 acquires RegistryCoordinatorStore {
+    public fun get_operator_status(operator: address): u8 acquires RegistryCoordinatorStore {
+        let store = registry_coordinator_store();
+        smart_table::borrow(&store.operator_infos, operator).operator_status
+    }
+
+    #[view]
+    public fun get_current_quorum_bitmap(operator_id: vector<u8>): u64 acquires RegistryCoordinatorStore {
+        let store = registry_coordinator_store();
+        let operator_bitmap_history = smart_table::borrow(&store.operator_bitmap_history, operator_id);
+        let operator_bitmap_history_length = vector::length(operator_bitmap_history);
+        for (i in 0..operator_bitmap_history_length) {
+            let index = operator_bitmap_history_length - i - 1;
+            let update_timestamp = vector::borrow(operator_bitmap_history, i).update_timestamp;
+            if (update_timestamp < timestamp::now_seconds()) {
+                return update_timestamp
+
+            }
+        };
+        assert!(false, 302);
+        return 0
+    }
+
+    #[view]
+    public fun get_quorum_bitmap_by_timestamp(operator_id: vector<u8>, timestamp: u64): u256 acquires RegistryCoordinatorStore {
         let store = registry_coordinator_store();
         *smart_table::borrow(&store.operator_bitmap, operator_id)
     }
