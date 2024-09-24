@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	"oracle-avs/aggregator"
 	operator "oracle-avs/operator"
 )
 
@@ -14,15 +15,16 @@ func main() {
 	logger := zLogger.Sugar()
 
 	rootCmd := &cobra.Command{
-		Use:   "operator [command]",
-		Short: "operator command for avs",
+		Use:   "avs [command]",
+		Short: "command for avs",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
 	}
 
 	rootCmd.AddCommand(
-		operator.Start(zLogger),
+		operator.OperatorCommand(zLogger),
+		aggregator.AggregatorCommand(zLogger),
 	)
 
 	err := rootCmd.Execute()

@@ -1,0 +1,5 @@
+package aggregator
+
+func StartAggregator(){
+	
+}

@@ -16,17 +16,17 @@ type Config struct {
 }
 
 type Operator struct {
-	account      *aptos.Account
-    // TODO: change this to aptos-sdk fork
+	account *aptos.Account
+	// TODO: change this to aptos-sdk fork
 	operatorId   eigentypes.Bytes32
 	avsAddress   aptos.AccountAddress
-	AggRpcClient *rpc.Client
+	AggRpcClient AggregatorRpcClient
 }
 type OperatorConfig struct {
-	BlsKeyPair      *bls.KeyPair
-	OperatorAddress aptos.AccountAddress
-	AvsAddress      aptos.AccountAddress
-	AggRpcClient    *rpc.Client
+	BlsKeyPair           *bls.KeyPair
+	OperatorAddress      aptos.AccountAddress
+	AvsAddress           aptos.AccountAddress
+	aggregatorIpPortAddr string
 	// OperatorId           eigentypes.OperatorId
 }
 
@@ -68,4 +68,9 @@ func (params *PubkeyRegistrationParams) MarshalBCS(ser *bcs.Serializer) {
 type AggregatorRpcClient struct {
 	rpcClient            *rpc.Client
 	aggregatorIpPortAddr string
+}
+
+type SignedTaskResponse struct {
+	BlsSignature bls.Signature
+	OperatorId   eigentypes.OperatorId
 }

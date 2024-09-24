@@ -4,6 +4,7 @@ require (
 	github.com/Layr-Labs/eigensdk-go v0.1.9
 	github.com/aptos-labs/aptos-go-sdk v0.7.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
+	github.com/pkg/errors v0.9.1
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/spf13/cobra v1.8.1
 	go.uber.org/zap v1.27.0

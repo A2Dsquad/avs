@@ -4,10 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/spf13/cobra"
-
-	"go.uber.org/zap"
-
 	// For now using eigentypes
 	eigentypes "github.com/Layr-Labs/eigensdk-go/types"
 
@@ -15,38 +11,11 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 )
 
-func Start(logger *zap.Logger) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "start",
-		Args:  cobra.ExactArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client := AptosClient(aptos.DevnetConfig)
-
-			receiver := aptos.AccountAddress{}
-			err := receiver.ParseStringRelaxed("0x972290dd0c7b1b95312bd3efea78a4552d14d47dcd6f08248ba69e78366d051b")
-			var start uint64 = 0
-			var end uint64 = 10
-			a, err := client.AccountTransactions(receiver, &start, &end)
-			if err != nil {
-				panic("Failed to PollForEvents:" + err.Error())
-			}
-			fmt.Println("Event:", a)
-
-			event, err := client.AccountsEvents("0x972290dd0c7b1b95312bd3efea78a4552d14d47dcd6f08248ba69e78366d051b", "0")
-			if err != nil {
-				panic("Failed to PollForEvents:" + err.Error())
-			}
-			fmt.Println("Event:", event)
-
-			price := getCMCPrice("BTC", "825")
-			fmt.Println("price:", price)
-			return nil
-			// client.SubmitTransaction()
-		},
-	}
-	return cmd
-}
+const (
+	flagAptosNetwork      = "aptos-network"
+	flagAptosConfigPath   = "aptos-config"
+	flagAvsOperatorConfig = "avs-operator-config"
+)
 
 func AptosClient(networkConfig aptos.NetworkConfig) *aptos.Client {
 	// Create a client for Aptos
@@ -57,8 +26,8 @@ func AptosClient(networkConfig aptos.NetworkConfig) *aptos.Client {
 	return client
 }
 
-func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, aptosConfig string) (*Operator, error) {
-	operator_account, err := SignerFromConfig(aptosConfig)
+func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, aptosConfigPath string) (*Operator, error) {
+	operator_account, err := SignerFromConfig(aptosConfigPath)
 	if err != nil {
 		panic("Failed to create operator account:" + err.Error())
 	}
@@ -83,17 +52,20 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, aptos
 
 	// connect to aggregator
 	// NewAggregatorRpcClient()
+	aggClient, err := NewAggregatorRpcClient(config.aggregatorIpPortAddr)
+	if err != nil {
+		return nil, fmt.Errorf("can not create aggregator rpc client: %s", err)
+	}
 
 	// Get OperatorId
 	operatorId := eigentypes.OperatorIdFromKeyPair(config.BlsKeyPair)
 
 	// return Operator
 	operator := Operator{
-		account:    operator_account,
-		operatorId: operatorId,
-		avsAddress: config.AvsAddress,
-		// TODO: set aggregator here
-		AggRpcClient: nil,
+		account:      operator_account,
+		operatorId:   operatorId,
+		avsAddress:   config.AvsAddress,
+		AggRpcClient: *aggClient,
 	}
 	return &operator, nil
 }

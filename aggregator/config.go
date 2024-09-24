@@ -1,4 +1,4 @@
-package operator
+package aggregator
 
 import (
 	"encoding/hex"
@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	aptos "github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/crypto"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
 type AptosConfig struct {
@@ -45,11 +45,11 @@ func SignerFromConfig(path string) (*aptos.Account, error) {
 
 	privateKeyBytes, err := hex.DecodeString(trimmedPriv)
 	if err != nil {
-		panic("Could not get operator priv key:" + err.Error())
+		panic("Could not get aggregator priv key:" + err.Error())
 	}
 	publicKeyBytes, err := hex.DecodeString(trimmedPub)
 	if err != nil {
-		panic("Could not get operator pub key:" + err.Error())
+		panic("Could not get aggregator pub key:" + err.Error())
 	}
 
 	privateKey := make([]byte, 64)
