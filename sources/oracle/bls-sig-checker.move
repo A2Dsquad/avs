@@ -35,9 +35,14 @@ module oracle::bls_sig_checker{
         quorum_aggr_pks: vector<AggrPublicKeysWithPoP>,
         quorum_apk_indices: vector<u64>,
         total_stake_indices: vector<u64>,
-        non_signer_stake_indices: vector<vector<u32>>,
+        non_signer_stake_indices: vector<vector<u64>>,
         aggr_pks: AggrPublicKeysWithPoP,
         aggr_sig: AggrOrMultiSignature
+    }
+
+    public struct QuorumStakeTotals has drop, copy {
+        total_stake_for_quorum: vector<u128>,
+        signed_stake_for_quorum: vector<u128>
     }
 
     struct BLSSigCheckerStore has key {
@@ -96,7 +101,7 @@ module oracle::bls_sig_checker{
         quorum_numbers: vector<u8>, 
         reference_timestamp: u64, 
         params: NonSignerStakesAndSignature
-    ) {
+    ): QuorumStakeTotals acquires BLSSigCheckerStore {
         let quorum_length = vector::length(&quorum_numbers);
         assert!(quorum_length > 0, EEMPTY_QUORUM);
         assert!(
@@ -163,13 +168,18 @@ module oracle::bls_sig_checker{
                         quorum_number, 
                         reference_timestamp, 
                         *operator_id,
-                        *vector::borrow(&params.non_signer_stake_indices, nonsigner_quorum_index)
+                        *vector::borrow(vector::borrow(&params.non_signer_stake_indices, i), nonsigner_quorum_index)
                     );
                     nonsigner_quorum_index = nonsigner_quorum_index + 1;
                 }
             }
-        }
+        };
         // TODO: check pairing
+
+        return QuorumStakeTotals{
+            total_stake_for_quorum, 
+            signed_stake_for_quorum
+        }
     }
 
     inline fun bls_sig_checker_signer(): &signer acquires BLSSigCheckerConfig{
