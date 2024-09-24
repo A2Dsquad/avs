@@ -22,4 +22,4 @@ rev = "mainnet"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dev-dependencies]
-restaking = { git = "https://github.com/A2Dsquad/restaking-contracts", rev = "9dff10c3c3c536f04b8a243719414e39da68c0b7"}
+restaking = { git = "https://github.com/decentrio/restaking-contracts", rev = "f14e36c849a4965962d4803d7031733d139a2cfe"}

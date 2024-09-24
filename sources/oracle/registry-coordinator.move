@@ -288,7 +288,7 @@ module oracle::registry_coordinator{
     }
 
     #[view]
-    public fun get_current_quorum_bitmap_by_timestamp(operator_id: vector<u8>, timestamp: u64): u64 acquires RegistryCoordinatorStore {
+    public fun get_quorum_bitmap_by_timestamp(operator_id: vector<u8>, timestamp: u64): u256 acquires RegistryCoordinatorStore {
         let store = registry_coordinator_store();
         let operator_bitmap_history = smart_table::borrow(&store.operator_bitmap_history, operator_id);
         let operator_bitmap_history_length = vector::length(operator_bitmap_history);
@@ -296,8 +296,7 @@ module oracle::registry_coordinator{
             let index = operator_bitmap_history_length - i - 1;
             let update_timestamp = vector::borrow(operator_bitmap_history, i).update_timestamp;
             if (update_timestamp < timestamp) {
-                return update_timestamp
-
+                return vector::borrow(operator_bitmap_history, i).quorum_bitmap
             }
         };
         assert!(false, 302);

@@ -38,6 +38,10 @@ module oracle::stake_registry{
     const ENO_STRATEGY_PROVIED: u64 = 1203;
     const ESAME_STRATEGY_PROVIED: u64 = 1204;
     const EZERO_MULTIPLIER: u64 = 1205;
+    const ESTAKE_HISTORY_NOT_EXIST: u64 = 1206;
+    const ESTAKE_HISTORY_INDEX_INVALID: u64 = 1207;
+    const ESTAKE_UPDATE_AFTER_TIMESTAMP: u64 = 1208;
+    const ENEW_STAKE_UPDATE_BEFORE_TIMESTAMP: u64 = 1209;
 
     struct StakeRegistryConfigs has key {
         signer_cap: SignerCapability,
@@ -314,6 +318,19 @@ module oracle::stake_registry{
         *last_stake_update
     }
     
+    #[view]
+    public fun total_stake_at_timestamp_from_index(quorum_number: u8, timestamp: u64, index: u64): u128 acquires StakeRegistryStore {
+        let store = stake_registry_store();
+        assert!(smart_table::contains(&store.total_stake_history, quorum_number), ESTAKE_HISTORY_NOT_EXIST);
+        let total_stake_history = smart_table::borrow(&store.total_stake_history, quorum_number);
+        assert!(vector::length(total_stake_history) -1 >= index, ESTAKE_HISTORY_INDEX_INVALID);
+
+        let total_stake_update = vector::borrow(total_stake_history, index);
+        assert!(timestamp >= total_stake_update.update_timestamp, ESTAKE_UPDATE_AFTER_TIMESTAMP);
+        assert!(timestamp < total_stake_update.next_update_timestamp, ENEW_STAKE_UPDATE_BEFORE_TIMESTAMP);
+        return total_stake_update.stake
+    }
+
     #[view]
     public fun total_history_length(quorum_number: u8): u64 acquires StakeRegistryStore{
         let store = stake_registry_store();

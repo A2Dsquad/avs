@@ -4,11 +4,11 @@ module oracle::bls_apk_registry{
     use aptos_framework::timestamp;
 
     use aptos_std::crypto_algebra;
-    use aptos_std::bls12381::{AggrPublicKeysWithPoP, Signature, PublicKeyWithPoP, aggregate_pubkeys, public_key_with_pop_to_bytes};
+    use aptos_std::bls12381::{AggrPublicKeysWithPoP, Signature, PublicKeyWithPoP, aggregate_pubkeys, aggregate_pubkey_to_bytes, public_key_with_pop_to_bytes, verify_signature_share};
     use aptos_std::bls12381_algebra::{G1, FormatG1Uncompr};
     use aptos_std::smart_table::{Self, SmartTable};
-    use aptos_std::option;
     use aptos_std::option::{Option};
+    use aptos_std::option;
 
     use std::string::{Self, String};
     use std::vector;
@@ -26,11 +26,13 @@ module oracle::bls_apk_registry{
     const EQUORUM_ALREADY_EXIST: u64 = 1101;
     const EQUORUM_DOES_NOT_EXIST: u64 = 1102;
     const EZERO_PUBKEY: u64 = 1103;
-    const EINVALID_PUBKEY_G1: u64 = 1104;
+    const EINVALID_pubkey: u64 = 1104;
     const EINVALID_PUBKEY_G2: u64 = 1105;
     const EOPERATOR_ALREADY_EXIST: u64 = 1106;
     const EPUBKEY_ALREADY_EXIST: u64 = 1107;
     const EPUBKEY_NOT_EXIST: u64 = 1108;
+    const ESIGNATURE_INVALID: u64 = 1109;
+    const EQUORUM_APK_UPDATE_INVALID_INDEX: u64 = 1110;
 
     struct BLSApkRegistryStore has key {
         operator_to_pk_hash: SmartTable<address, vector<u8>>,
@@ -48,8 +50,7 @@ module oracle::bls_apk_registry{
 
     struct PubkeyRegistrationParams has copy, drop {
         signature: Signature,
-        pubkey_g1: PublicKeyWithPoP,
-        pubkey_g2: PublicKeyWithPoP
+        pubkey: PublicKeyWithPoP
     }
 
     struct BLSApkRegistryConfigs has key {
@@ -132,27 +133,26 @@ module oracle::bls_apk_registry{
     }
 
     public(friend) fun register_bls_pubkey(operator: &signer, params: PubkeyRegistrationParams, msg: vector<u8>): vector<u8> acquires BLSApkRegistryStore {
-        let g1_bytes = public_key_with_pop_to_bytes(&params.pubkey_g1);
-        assert!(vector::length(&g1_bytes) == 96, EINVALID_PUBKEY_G1);
-        assert!(vector::length(&public_key_with_pop_to_bytes(&params.pubkey_g2)) == 96, EINVALID_PUBKEY_G2);
-        let g1 = option::borrow(&crypto_algebra::deserialize<G1, FormatG1Uncompr>(&public_key_with_pop_to_bytes(&params.pubkey_g1)));
+        let pubkey_bytes = public_key_with_pop_to_bytes(&params.pubkey);
+        assert!(vector::length(&pubkey_bytes) == 96, EINVALID_pubkey);
+        let g1 = option::borrow(&crypto_algebra::deserialize<G1, FormatG1Uncompr>(&public_key_with_pop_to_bytes(&params.pubkey)));
         let zero_g1 = crypto_algebra::zero<G1>();
         assert!(!crypto_algebra::eq(g1, &zero_g1), EZERO_PUBKEY);
 
         let store = bls_apk_registry_store();
         let operator_address = signer::address_of(operator);
         assert!(!smart_table::contains(&store.operator_to_pk_hash, operator_address), EOPERATOR_ALREADY_EXIST);
-        assert!(!smart_table::contains(&store.pk_hash_to_operator, g1_bytes), EPUBKEY_ALREADY_EXIST);
+        assert!(!smart_table::contains(&store.pk_hash_to_operator, pubkey_bytes), EPUBKEY_ALREADY_EXIST);
 
-        // TODO gamma and pairing
+        assert!(verify_signature_share(&params.signature, &params.pubkey, msg), ESIGNATURE_INVALID);
 
         let store_mut = bls_apk_registry_store_mut();
-        smart_table::upsert(&mut store_mut.operator_to_pk, operator_address, params.pubkey_g1);
-        smart_table::upsert(&mut store_mut.operator_to_pk_hash, operator_address, g1_bytes);
-        smart_table::upsert(&mut store_mut.pk_hash_to_operator, g1_bytes, operator_address);
+        smart_table::upsert(&mut store_mut.operator_to_pk, operator_address, params.pubkey);
+        smart_table::upsert(&mut store_mut.operator_to_pk_hash, operator_address, pubkey_bytes);
+        smart_table::upsert(&mut store_mut.pk_hash_to_operator, pubkey_bytes, operator_address);
         
         // TODO emit event
-        return g1_bytes
+        return pubkey_bytes
     }
 
     fun update_quorum_apk(quorum_numbers: vector<u8>, pubkey: PublicKeyWithPoP, register: bool) acquires BLSApkRegistryStore {
@@ -197,6 +197,19 @@ module oracle::bls_apk_registry{
         let store = bls_apk_registry_store();
         let operator_id = smart_table::borrow(&store.operator_to_pk_hash, operator);
         return *operator_id
+    }
+
+    #[view]
+    public fun get_aggr_pk_hash_at_timestamp(quorum_number: u8, timestamp: u64, index: u64): vector<u8> acquires BLSApkRegistryStore {
+        let store = bls_apk_registry_store();
+        assert!(smart_table::contains(&store.apk_history, quorum_number), EQUORUM_DOES_NOT_EXIST);
+        let quorum_apk_update = smart_table::borrow(&store.apk_history, quorum_number);
+        assert!(vector::length(quorum_apk_update) - 1 > index, EQUORUM_APK_UPDATE_INVALID_INDEX);
+        let quorum_apk_update_at_index = vector::borrow(quorum_apk_update, index);
+
+        let aggregate_pubkeys = option::borrow(&quorum_apk_update_at_index.aggregate_pubkeys);
+
+        return aggregate_pubkey_to_bytes(aggregate_pubkeys)
     }
     
     inline fun latest_apk_update_mut(quorum_number: u8): &mut ApkUpdate acquires BLSApkRegistryStore {
