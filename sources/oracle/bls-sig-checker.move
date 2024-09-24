@@ -145,12 +145,31 @@ module oracle::bls_sig_checker{
                 *vector::borrow(&params.quorum_apk_indices, i)
             ) == quorum_apk, EQUORUM_APK_HASH_MISMATCH);
 
-            vector::push_back(&mut total_stake_for_quorum, stake_registry::total_stake_at_timestamp_from_index(
+            let total_stake_quorum = stake_registry::total_stake_at_timestamp_from_index(
                 quorum_number, 
                 reference_timestamp, 
                 *vector::borrow(&params.total_stake_indices, i)
-            ));
+            );
+            vector::push_back(&mut total_stake_for_quorum, total_stake_quorum);
+            vector::push_back(&mut signed_stake_for_quorum, total_stake_quorum);
+
+            let nonsigner_quorum_index: u64 = 0;
+            for (j in 0..(nonsigner_pubkeys_length - 1)) {
+                let quorum_bitmap = *vector::borrow(&quorum_bitmaps, j);
+                if (1 == (quorum_bitmap >> quorum_number) & 1) {
+                    let signed_stake = vector::borrow_mut(&mut signed_stake_for_quorum, i);
+                    let operator_id = vector::borrow(&mut pubkey_hashes, j);
+                    *signed_stake = *signed_stake - stake_registry::get_stake_at_timestamp_and_index(
+                        quorum_number, 
+                        reference_timestamp, 
+                        *operator_id,
+                        *vector::borrow(&params.non_signer_stake_indices, nonsigner_quorum_index)
+                    );
+                    nonsigner_quorum_index = nonsigner_quorum_index + 1;
+                }
+            }
         }
+        // TODO: check pairing
     }
 
     inline fun bls_sig_checker_signer(): &signer acquires BLSSigCheckerConfig{
