@@ -21,12 +21,20 @@ module oracle::service_manager{
     use oracle::bls_apk_registry;
     use oracle::stake_registry;
     use oracle::fee_pool;
+    use oracle::bls_sig_checker;
 
     const SERVICE_MANAGER_NAME: vector<u8> = b"SERVICE_MANAGER_NAME";
     const SERVICE_PREFIX: vector<u8> = b"SERVICE_PREFIX";
 
+    const THRESHOLD_DENOMINATOR: u128 = 100; 
+    const QUORUM_THRESHOLD_PERCENTAGE: u128 = 67;
+
     const EBATCH_ALREADY_SUBMITTED: u64 = 1300;
-    const EINSUFFICIENT_FUNDS: u64 = 1301;
+    const EBATCH_DOES_NOT_EXIST: u64 = 1301;
+    const EBATCH_ALREADY_RESPONDED: u64 = 1302;
+    const EBATCH_HAS_NO_BALANCE: u64 = 1303;
+    const EINSUFFICIENT_FUNDS: u64 = 1304;
+    const ETHRESHOLD_NOT_MEET: u64 = 1305;
 
     struct BatchState has store, drop, copy {
         task_created_timestamp: u64,
@@ -95,7 +103,7 @@ module oracle::service_manager{
         vector::append(&mut hash_data, batcher_store_seeds(batcher_address));
 
         let batch_identifier = aptos_hash::keccak256(hash_data);
-        assert!(smart_table::contains(&service_manager_store().batches_state, batch_identifier), EBATCH_ALREADY_SUBMITTED);
+        assert!(!smart_table::contains(&service_manager_store().batches_state, batch_identifier), EBATCH_ALREADY_SUBMITTED);
 
         if (amount > 0) {
             let store = primary_fungible_store::ensure_primary_store_exists(batcher_address, token);
@@ -142,13 +150,38 @@ module oracle::service_manager{
         })
     }
 
-    // public entry fun respond_to_task(
-    //     aggregator: &signer,
-    //     batch_merkle_root: vector<u8>,
-    //     non_signer_stakes_and_signatur: NonSignerStakesAndSignature
-    // ) acquires ServiceManagerStore, BatcherBalanceStore {
+    public entry fun respond_to_task(
+        aggregator: &signer,
+        batch_merkle_root: vector<u8>,
+        sender: address,
+        non_signer_stakes_and_signature: bls_sig_checker::NonSignerStakesAndSignature,
+    ) acquires ServiceManagerStore, BatcherBalanceStore {
+        let hash_data = vector<u8>[];
+        vector::append(&mut hash_data, batch_merkle_root);
+        vector::append(&mut hash_data, batcher_store_seeds(sender));
+        let batch_identifier = aptos_hash::keccak256(hash_data);
+
+        assert!(smart_table::contains(&service_manager_store().batches_state, batch_identifier), EBATCH_DOES_NOT_EXIST);
+        assert!(smart_table::borrow(&service_manager_store().batches_state, batch_identifier).responded, EBATCH_ALREADY_RESPONDED);
+        assert!(smart_table::borrow(&service_manager_store().batches_state, batch_identifier).respond_fee_limit > 0, EBATCH_HAS_NO_BALANCE);
+
+        let store_mut = service_manager_store_mut();
+        let batch_state = smart_table::borrow_mut(&mut store_mut.batches_state, batch_identifier);
+        batch_state.responded = true;
         
-    // }
+        let quorum_stake_totals = bls_sig_checker::check_signatures(
+            batch_identifier,
+            vector::singleton(0),
+            smart_table::borrow(&service_manager_store().batches_state, batch_identifier).task_created_timestamp,
+            non_signer_stakes_and_signature
+        );
+
+        let signed_stake = *vector::borrow(&quorum_stake_totals.signed_stake_for_quorum, 0);
+        let total_stake = *vector::borrow(&quorum_stake_totals.total_stake_for_quorum, 0);
+        assert!((signed_stake * THRESHOLD_DENOMINATOR) >= (total_stake * QUORUM_THRESHOLD_PERCENTAGE), ETHRESHOLD_NOT_MEET);
+    
+        // TODO: distribute fee
+    }
 
     #[view]
     public fun is_initialized(): bool{

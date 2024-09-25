@@ -35,9 +35,14 @@ module oracle::bls_sig_checker{
         quorum_aggr_pks: vector<AggrPublicKeysWithPoP>,
         quorum_apk_indices: vector<u64>,
         total_stake_indices: vector<u64>,
-        non_signer_stake_indices: vector<vector<u32>>,
+        non_signer_stake_indices: vector<vector<u64>>,
         aggr_pks: AggrPublicKeysWithPoP,
         aggr_sig: AggrOrMultiSignature
+    }
+
+    public struct QuorumStakeTotals has drop, copy {
+        total_stake_for_quorum: vector<u128>,
+        signed_stake_for_quorum: vector<u128>
     }
 
     struct BLSSigCheckerStore has key {
@@ -96,7 +101,7 @@ module oracle::bls_sig_checker{
         quorum_numbers: vector<u8>, 
         reference_timestamp: u64, 
         params: NonSignerStakesAndSignature
-    ) {
+    ): QuorumStakeTotals acquires BLSSigCheckerStore {
         let quorum_length = vector::length(&quorum_numbers);
         assert!(quorum_length > 0, EEMPTY_QUORUM);
         assert!(
@@ -145,11 +150,35 @@ module oracle::bls_sig_checker{
                 *vector::borrow(&params.quorum_apk_indices, i)
             ) == quorum_apk, EQUORUM_APK_HASH_MISMATCH);
 
-            vector::push_back(&mut total_stake_for_quorum, stake_registry::total_stake_at_timestamp_from_index(
+            let total_stake_quorum = stake_registry::total_stake_at_timestamp_from_index(
                 quorum_number, 
                 reference_timestamp, 
                 *vector::borrow(&params.total_stake_indices, i)
-            ));
+            );
+            vector::push_back(&mut total_stake_for_quorum, total_stake_quorum);
+            vector::push_back(&mut signed_stake_for_quorum, total_stake_quorum);
+
+            let nonsigner_quorum_index: u64 = 0;
+            for (j in 0..(nonsigner_pubkeys_length - 1)) {
+                let quorum_bitmap = *vector::borrow(&quorum_bitmaps, j);
+                if (1 == (quorum_bitmap >> quorum_number) & 1) {
+                    let signed_stake = vector::borrow_mut(&mut signed_stake_for_quorum, i);
+                    let operator_id = vector::borrow(&mut pubkey_hashes, j);
+                    *signed_stake = *signed_stake - stake_registry::get_stake_at_timestamp_and_index(
+                        quorum_number, 
+                        reference_timestamp, 
+                        *operator_id,
+                        *vector::borrow(vector::borrow(&params.non_signer_stake_indices, i), nonsigner_quorum_index)
+                    );
+                    nonsigner_quorum_index = nonsigner_quorum_index + 1;
+                }
+            }
+        };
+        // TODO: check pairing
+
+        return QuorumStakeTotals{
+            total_stake_for_quorum, 
+            signed_stake_for_quorum
         }
     }
 
