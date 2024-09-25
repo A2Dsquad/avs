@@ -29,14 +29,14 @@ module oracle::service_manager{
     const THRESHOLD_DENOMINATOR: u128 = 100; 
     const QUORUM_THRESHOLD_PERCENTAGE: u128 = 67;
 
-    const EBATCH_ALREADY_SUBMITTED: u64 = 1300;
-    const EBATCH_DOES_NOT_EXIST: u64 = 1301;
-    const EBATCH_ALREADY_RESPONDED: u64 = 1302;
-    const EBATCH_HAS_NO_BALANCE: u64 = 1303;
+    const ETASK_ALREADY_SUBMITTED: u64 = 1300;
+    const ETASK_DOES_NOT_EXIST: u64 = 1301;
+    const ETASK_ALREADY_RESPONDED: u64 = 1302;
+    const ETASK_HAS_NO_BALANCE: u64 = 1303;
     const EINSUFFICIENT_FUNDS: u64 = 1304;
     const ETHRESHOLD_NOT_MEET: u64 = 1305;
 
-    struct BatchState has store, drop, copy {
+    struct TaskState has store, drop, copy {
         task_created_timestamp: u64,
         responded: bool,
         respond_fee_token: Object<Metadata>,
@@ -44,13 +44,13 @@ module oracle::service_manager{
     }
 
     struct ServiceManagerStore has key {
-        batches_state: SmartTable<vector<u8>, BatchState>,
+        tasks_state: SmartTable<vector<u8>, TaskState>,
     }
 
     struct FeePool has key {
         token_store: Object<FungibleStore>
     }
-    struct BatcherBalanceStore has key, store {
+    struct TaskCreatorBalanceStore has key, store {
         balances: SmartTable<Object<Metadata>, u64>,
     }
 
@@ -59,18 +59,17 @@ module oracle::service_manager{
     }
 
     #[event]
-    struct BatcherBalanceUpdated has drop, store {
-        batcher: address,
+    struct TaskCreatorBalanceUpdated has drop, store {
+        creator: address,
         token: Object<Metadata>,
         amount: u64,
     }
 
     #[event]
-    struct BatchCreated has drop, store {
-        batch_merkle_root: vector<u8>,
-        batcher: address,
+    struct TaskCreated has drop, store {
+        creator: address,
         timestamp: u64,
-        batch_data_pointer: String,
+        data_request: String,
         respond_fee_token: Object<Metadata>,
         respond_fee_limit: u64
     }
@@ -89,62 +88,61 @@ module oracle::service_manager{
     }
 
     public entry fun create_new_task(
-        batcher: &signer,
+        creator: &signer,
         token: Object<Metadata>,
         amount: u64,
-        batch_merkle_root: vector<u8>,
-        batch_data_pointer: String,
+        task_id: vector<u8>,
+        data_request: String,
         respond_fee_limit: u64
-    ) acquires ServiceManagerConfigs, ServiceManagerStore, BatcherBalanceStore {
-        let batcher_address = signer::address_of(batcher);
+    ) acquires ServiceManagerConfigs, ServiceManagerStore, TaskCreatorBalanceStore {
+        let creator_address = signer::address_of(creator);
        
         let hash_data = vector<u8>[];
-        vector::append(&mut hash_data, batch_merkle_root);
-        vector::append(&mut hash_data, batcher_store_seeds(batcher_address));
+        vector::append(&mut hash_data, task_id);
+        vector::append(&mut hash_data, task_creator_store_seeds(creator_address));
 
-        let batch_identifier = aptos_hash::keccak256(hash_data);
-        assert!(!smart_table::contains(&service_manager_store().batches_state, batch_identifier), EBATCH_ALREADY_SUBMITTED);
+        let task_identifier = aptos_hash::keccak256(hash_data);
+        assert!(!smart_table::contains(&service_manager_store().tasks_state, task_identifier), ETASK_ALREADY_SUBMITTED);
 
         if (amount > 0) {
-            let store = primary_fungible_store::ensure_primary_store_exists(batcher_address, token);
-            let fa = fungible_asset::withdraw(batcher, store, amount);
+            let store = primary_fungible_store::ensure_primary_store_exists(creator_address, token);
+            let fa = fungible_asset::withdraw(creator, store, amount);
         
             let pool = fee_pool::ensure_fee_pool(token);
             fee_pool::deposit(pool, fa);
 
-            // Ensure batcher balance store is created
-            ensure_batcher_balance_store(batcher_address);
-            let store_mut = batcher_balance_store_mut(batcher_address);
+            // Ensure creator balance store is created
+            ensure_task_creator_balance_store(creator_address);
+            let store_mut = task_creator_balance_store_mut(creator_address);
             let current_balance = smart_table::borrow_mut_with_default(&mut store_mut.balances, token, 0);
 
             *current_balance = *current_balance + amount;
 
-            event::emit(BatcherBalanceUpdated {
-                batcher: batcher_address, 
+            event::emit(TaskCreatorBalanceUpdated {
+                creator: creator_address, 
                 token,
                 amount: *current_balance
             });
         };
 
-        let store = batcher_balance_store(batcher_address);
+        let store = task_creator_balance_store(creator_address);
         let current_balance = smart_table::borrow_with_default(&store.balances, token, &0);
 
         assert!(*current_balance >= respond_fee_limit, EINSUFFICIENT_FUNDS);
 
         let now = timestamp::now_seconds();
         let store_mut = service_manager_store_mut();
-        smart_table::upsert(&mut store_mut.batches_state, batch_identifier, BatchState{
+        smart_table::upsert(&mut store_mut.tasks_state, task_identifier, TaskState{
             task_created_timestamp: now,
             responded: false,
             respond_fee_token: token, 
             respond_fee_limit,
         });
         
-        event::emit(BatchCreated{
-            batch_merkle_root,
-            batcher: batcher_address, 
+        event::emit(TaskCreated{
+            creator: creator_address, 
             timestamp: now,
-            batch_data_pointer,
+            data_request,
             respond_fee_token: token,
             respond_fee_limit
         })
@@ -152,27 +150,27 @@ module oracle::service_manager{
 
     public entry fun respond_to_task(
         aggregator: &signer,
-        batch_merkle_root: vector<u8>,
+        task_id: vector<u8>,
         sender: address,
         non_signer_stakes_and_signature: bls_sig_checker::NonSignerStakesAndSignature,
-    ) acquires ServiceManagerStore, BatcherBalanceStore {
+    ) acquires ServiceManagerStore, TaskCreatorBalanceStore {
         let hash_data = vector<u8>[];
-        vector::append(&mut hash_data, batch_merkle_root);
-        vector::append(&mut hash_data, batcher_store_seeds(sender));
-        let batch_identifier = aptos_hash::keccak256(hash_data);
+        vector::append(&mut hash_data, task_id);
+        vector::append(&mut hash_data, task_creator_store_seeds(sender));
+        let task_identifier = aptos_hash::keccak256(hash_data);
 
-        assert!(smart_table::contains(&service_manager_store().batches_state, batch_identifier), EBATCH_DOES_NOT_EXIST);
-        assert!(smart_table::borrow(&service_manager_store().batches_state, batch_identifier).responded, EBATCH_ALREADY_RESPONDED);
-        assert!(smart_table::borrow(&service_manager_store().batches_state, batch_identifier).respond_fee_limit > 0, EBATCH_HAS_NO_BALANCE);
+        assert!(smart_table::contains(&service_manager_store().tasks_state, task_identifier), ETASK_DOES_NOT_EXIST);
+        assert!(smart_table::borrow(&service_manager_store().tasks_state, task_identifier).responded, ETASK_ALREADY_RESPONDED);
+        assert!(smart_table::borrow(&service_manager_store().tasks_state, task_identifier).respond_fee_limit > 0, ETASK_HAS_NO_BALANCE);
 
         let store_mut = service_manager_store_mut();
-        let batch_state = smart_table::borrow_mut(&mut store_mut.batches_state, batch_identifier);
-        batch_state.responded = true;
+        let task_state = smart_table::borrow_mut(&mut store_mut.tasks_state, task_identifier);
+        task_state.responded = true;
         
         let quorum_stake_totals = bls_sig_checker::check_signatures(
-            batch_identifier,
+            task_identifier,
             vector::singleton(0),
-            smart_table::borrow(&service_manager_store().batches_state, batch_identifier).task_created_timestamp,
+            smart_table::borrow(&service_manager_store().tasks_state, task_identifier).task_created_timestamp,
             non_signer_stakes_and_signature
         );
 
@@ -197,7 +195,7 @@ module oracle::service_manager{
     public fun create_service_manager_store() acquires ServiceManagerConfigs{
         let service_manager_signer = service_manager_signer();
         move_to(service_manager_signer, ServiceManagerStore{
-            batches_state: smart_table::new()
+            tasks_state: smart_table::new()
         })
     }
 
@@ -207,19 +205,19 @@ module oracle::service_manager{
         }
     }
 
-    fun ensure_batcher_balance_store(batcher_address: address) acquires ServiceManagerConfigs{
-        if(!exists<BatcherBalanceStore>(batcher_address)){
-            create_batcher_balance_store(batcher_address);
+    fun ensure_task_creator_balance_store(creator_address: address) acquires ServiceManagerConfigs{
+        if(!exists<TaskCreatorBalanceStore>(creator_address)){
+            create_task_creator_balance_store(creator_address);
         }
     }
 
-    public fun create_batcher_balance_store(batcher_address: address) acquires ServiceManagerConfigs{
+    public fun create_task_creator_balance_store(creator_address: address) acquires ServiceManagerConfigs{
         let service_manager_signer = service_manager_signer();
-        let ctor = &object::create_named_object(service_manager_signer, batcher_store_seeds(batcher_address));
-        let batcher_balance_store_signer = object::generate_signer(ctor);
+        let ctor = &object::create_named_object(service_manager_signer, task_creator_store_seeds(creator_address));
+        let task_creator_balance_store_signer = object::generate_signer(ctor);
     
-        move_to(&batcher_balance_store_signer, ServiceManagerStore{
-            batches_state: smart_table::new()
+        move_to(&task_creator_balance_store_signer, ServiceManagerStore{
+            tasks_state: smart_table::new()
         })
     }
 
@@ -231,26 +229,26 @@ module oracle::service_manager{
         borrow_global_mut<ServiceManagerStore>(service_manager_address())
     }
 
-    inline fun batcher_balance_store(batcher_address: address): &BatcherBalanceStore acquires BatcherBalanceStore {
-        borrow_global<BatcherBalanceStore>(batcher_balance_store_address(batcher_address))
+    inline fun task_creator_balance_store(creator_address: address): &TaskCreatorBalanceStore acquires TaskCreatorBalanceStore {
+        borrow_global<TaskCreatorBalanceStore>(task_creator_balance_store_address(creator_address))
     }
 
-    inline fun batcher_balance_store_mut(batcher_address: address): &mut BatcherBalanceStore acquires BatcherBalanceStore {
-        borrow_global_mut<BatcherBalanceStore>(batcher_balance_store_address(batcher_address))
+    inline fun task_creator_balance_store_mut(creator_address: address): &mut TaskCreatorBalanceStore acquires TaskCreatorBalanceStore {
+        borrow_global_mut<TaskCreatorBalanceStore>(task_creator_balance_store_address(creator_address))
     }
 
-    inline fun batcher_balance_store_address(batcher_address: address): address {
-        object::create_object_address(&service_manager_address(), batcher_store_seeds(batcher_address))
+    inline fun task_creator_balance_store_address(creator_address: address): address {
+        object::create_object_address(&service_manager_address(), task_creator_store_seeds(creator_address))
     }
 
     inline fun service_manager_signer(): &signer acquires ServiceManagerConfigs{
         &account::create_signer_with_capability(&borrow_global<ServiceManagerConfigs>(service_manager_address()).signer_cap)
     }
 
-    inline fun batcher_store_seeds(batcher_address: address): vector<u8>{
+    inline fun task_creator_store_seeds(creator_address: address): vector<u8>{
         let seeds = vector<u8>[];
         vector::append(&mut seeds, SERVICE_PREFIX);
-        vector::append(&mut seeds, bcs::to_bytes(&batcher_address));
+        vector::append(&mut seeds, bcs::to_bytes(&creator_address));
         seeds
     }
 }
