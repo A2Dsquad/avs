@@ -70,7 +70,4 @@ type AggregatorRpcClient struct {
 	aggregatorIpPortAddr string
 }
 
-type SignedTaskResponse struct {
-	BlsSignature bls.Signature
-	OperatorId   eigentypes.OperatorId
-}
+

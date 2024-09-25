@@ -1,5 +1,0 @@
-package aggregator
-
-func StartAggregator(){
-	
-}

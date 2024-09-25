@@ -1,11 +1,12 @@
 package aggregator
 
 import (
-	"net/http"
-	"net/rpc"
-
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk/api"
 	"go.uber.org/zap"
+
+	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
+	eigentypes "github.com/Layr-Labs/eigensdk-go/types"
 )
 
 type AggregatorConfig struct {
@@ -24,28 +25,10 @@ type Aggregator struct {
 	AvsAddress        string
 	AggregatorAccount aptos.Account
 	AggregatorConfig  AggregatorConfig
+	TaskQueue         chan api.EventV2
 }
 
-func (agg *Aggregator) ServeOperators() error {
-	// Registers a new RPC server
-	err := rpc.Register(agg)
-	if err != nil {
-		return err
-	}
-
-	// Registers an HTTP handler for RPC messages
-	rpc.HandleHTTP()
-
-	// Start listening for requests on aggregator address
-	// ServeOperators accepts incoming HTTP connections on the listener, creating
-	// a new service goroutine for each. The service goroutines read requests
-	// and then call handler to reply to them
-	agg.logger.Info("Starting RPC server on address:", zap.String("address", agg.AggregatorConfig.ServerIpPortAddress))
-
-	err = http.ListenAndServe(agg.AggregatorConfig.ServerIpPortAddress, nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
+type SignedTaskResponse struct {
+	BlsSignature bls.Signature
+	OperatorId   eigentypes.OperatorId
 }

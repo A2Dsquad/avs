@@ -3,6 +3,7 @@ package operator
 import (
 	"fmt"
 	"net/rpc"
+	"oracle-avs/aggregator"
 	"time"
 
 	"github.com/pkg/errors"
@@ -25,7 +26,7 @@ func NewAggregatorRpcClient(aggregatorIpPortAddr string) (*AggregatorRpcClient, 
 	}, nil
 }
 
-func (c *AggregatorRpcClient) SendSignedTaskResponseToAggregator(signedTaskResponse SignedTaskResponse) {
+func (c *AggregatorRpcClient) SendSignedTaskResponseToAggregator(signedTaskResponse aggregator.SignedTaskResponse) {
 	var reply uint8
 	for retries := 0; retries < MaxRetries; retries++ {
 		err := c.rpcClient.Call("Aggregator.RespondTask", signedTaskResponse, &reply)

@@ -36,7 +36,7 @@ func Start(logger *zap.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "start",
-		Args:  cobra.ExactArgs(4),
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get all the flags
 			aptosPath, err := cmd.Flags().GetString(flagAptosConfigPath)
