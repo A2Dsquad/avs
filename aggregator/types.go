@@ -11,11 +11,17 @@ import (
 type AggregatorConfig struct {
 	ServerIpPortAddress string
 	avsAddress          string
-	accountPath         string
+	accountConfig       AccountConfig
+}
+
+type AccountConfig struct {
+	accountPath string
+	profile     string
 }
 
 type Aggregator struct {
 	logger            *zap.Logger
+	AvsAddress        string
 	AggregatorAccount aptos.Account
 	AggregatorConfig  AggregatorConfig
 }

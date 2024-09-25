@@ -11,11 +11,10 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 )
 
-const (
-	flagAptosNetwork      = "aptos-network"
-	flagAptosConfigPath   = "aptos-config"
-	flagAvsOperatorConfig = "avs-operator-config"
-)
+type AptosAccountConfig struct {
+	configPath string
+	profile    string
+}
 
 func AptosClient(networkConfig aptos.NetworkConfig) *aptos.Client {
 	// Create a client for Aptos
@@ -26,8 +25,8 @@ func AptosClient(networkConfig aptos.NetworkConfig) *aptos.Client {
 	return client
 }
 
-func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, aptosConfigPath string) (*Operator, error) {
-	operator_account, err := SignerFromConfig(aptosConfigPath)
+func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accountConfig AptosAccountConfig) (*Operator, error) {
+	operator_account, err := SignerFromConfig(accountConfig.configPath, accountConfig.profile)
 	if err != nil {
 		panic("Failed to create operator account:" + err.Error())
 	}

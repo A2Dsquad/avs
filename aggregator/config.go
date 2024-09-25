@@ -12,14 +12,10 @@ import (
 )
 
 type AptosConfig struct {
-	Profiles Profiles `yaml:profiles"`
+	Profiles map[string]Profile `yaml:profiles"`
 }
 
-type Profiles struct {
-	Default DefaultProfile `yaml:"default"`
-}
-
-type DefaultProfile struct {
+type Profile struct {
 	Network    string `yaml:"devnet"`
 	PrivateKey string `yaml:"private_key"`
 	PublicKey  string `yaml:"public_key"`
@@ -28,7 +24,7 @@ type DefaultProfile struct {
 	FaucetURL  string `yaml:"faucet_url"`
 }
 
-func SignerFromConfig(path string) (*aptos.Account, error) {
+func SignerFromConfig(path string, profile string) (*aptos.Account, error) {
 	yamlFile, err := os.ReadFile(path)
 	if err != nil {
 		log.Printf("yamlFile.Get err   #%v ", err)
@@ -40,8 +36,8 @@ func SignerFromConfig(path string) (*aptos.Account, error) {
 		log.Fatalf("Unmarshal: %v", err)
 	}
 
-	trimmedPriv := strings.TrimPrefix(aptosConfig.Profiles.Default.PrivateKey, "0x")
-	trimmedPub := strings.TrimPrefix(aptosConfig.Profiles.Default.PublicKey, "0x")
+	trimmedPriv := strings.TrimPrefix(aptosConfig.Profiles[profile].PrivateKey, "0x")
+	trimmedPub := strings.TrimPrefix(aptosConfig.Profiles[profile].PublicKey, "0x")
 
 	privateKeyBytes, err := hex.DecodeString(trimmedPriv)
 	if err != nil {
