@@ -1,11 +1,16 @@
 package operator
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+
+	aptos "github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk/crypto"
 )
 
 const (
@@ -26,10 +31,59 @@ func OperatorCommand(zLogger *zap.Logger) *cobra.Command {
 
 	// Add operator-specific subcommands here
 	operatorCmd.AddCommand(
-		Start(zLogger), // Example: 'operator start'
+		Start(zLogger),                // Example: 'operator start'
+		CreateOperatorConfig(zLogger), // Example: 'operator create-key'
 	)
 
 	return operatorCmd
+}
+
+func CreateOperatorConfig(logger *zap.Logger) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "config",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			operatorConfigPath, err := cmd.Flags().GetString(flagAvsOperatorConfig)
+			if err != nil {
+				return errors.Wrap(err, flagAvsOperatorConfig)
+			}
+
+			privKey, err := crypto.GenerateBlsPrivateKey()
+			if err != nil {
+				return fmt.Errorf("unable to generate bls keys: %s", err)
+			}
+
+			avsAddress := aptos.AccountAddress{}
+			if err := avsAddress.ParseStringRelaxed(args[0]); err != nil {
+				return fmt.Errorf("failed to parse avs address: %s", err)
+			}
+
+			portAddr := args[1]
+			operatorConfig := OperatorConfig{
+				BlsPrivateKey:        privKey.Inner.Marshal(),
+				AvsAddress:           avsAddress.String(),
+				AggregatorIpPortAddr: portAddr,
+			}
+			bz, err := json.Marshal(operatorConfig)
+			if err != nil {
+				return fmt.Errorf("failed to marshal operator config: %s", err)
+			}
+
+			f, err := os.Create(operatorConfigPath)
+			if err != nil {
+				return fmt.Errorf("failed to create file at %s: %s", operatorConfigPath, err)
+			}
+			_, err = f.WriteString(string(bz))
+			if err != nil {
+				return fmt.Errorf("failed to write to file at %s: %s", operatorConfigPath, err)
+			}
+
+			return nil
+		},
+	}
+	cmd.Flags().String(flagAvsOperatorConfig, "config/config.json", "see the example at config/example.json")
+	return cmd
 }
 
 func Start(logger *zap.Logger) *cobra.Command {

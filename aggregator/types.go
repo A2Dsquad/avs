@@ -3,9 +3,9 @@ package aggregator
 import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/api"
+	"github.com/aptos-labs/aptos-go-sdk/crypto"
 	"go.uber.org/zap"
 
-	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
 	eigentypes "github.com/Layr-Labs/eigensdk-go/types"
 )
 
@@ -29,6 +29,6 @@ type Aggregator struct {
 }
 
 type SignedTaskResponse struct {
-	BlsSignature bls.Signature
+	BlsSignature crypto.BlsSignature
 	OperatorId   eigentypes.OperatorId
 }

@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	// For now using eigentypes
-	eigentypes "github.com/Layr-Labs/eigensdk-go/types"
-
 	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
+	"github.com/aptos-labs/aptos-go-sdk/crypto"
 )
 
 type AptosAccountConfig struct {
@@ -36,7 +34,11 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 	}
 
 	// Get operator Status
-	registered := IsOperatorRegistered(client, config.AvsAddress, config.OperatorAddress.String())
+	avsAddress := aptos.AccountAddress{}
+	if err := avsAddress.ParseStringRelaxed(config.AvsAddress); err != nil {
+		panic("Failed to parse avsAddress:" + err.Error())
+	}
+	registered := IsOperatorRegistered(client, avsAddress, operator_account.Address.String())
 
 	if !registered {
 		log.Println("Operator is not registered with A2D Oracle AVS, registering...")
@@ -46,24 +48,26 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 		// Register Operator
 		// TODO: minh help
 		// ignore error here because panic all the time
-		_ = RegisterOperator(client, operator_account, config.AvsAddress.String(), quorumNumbers, PubkeyRegistrationParams{})
+		_ = RegisterOperator(client, operator_account, avsAddress.String(), quorumNumbers, PubkeyRegistrationParams{})
 	}
 
 	// connect to aggregator
 	// NewAggregatorRpcClient()
-	aggClient, err := NewAggregatorRpcClient(config.aggregatorIpPortAddr)
+	aggClient, err := NewAggregatorRpcClient(config.AggregatorIpPortAddr)
 	if err != nil {
 		return nil, fmt.Errorf("can not create aggregator rpc client: %s", err)
 	}
 
 	// Get OperatorId
-	operatorId := eigentypes.OperatorIdFromKeyPair(config.BlsKeyPair)
+	var privKey crypto.BlsPrivateKey
+	privKey.FromBytes(config.BlsPrivateKey)
+	operatorId := privKey.Inner.PublicKey().Marshal()
 
 	// return Operator
 	operator := Operator{
 		account:      operator_account,
 		operatorId:   operatorId,
-		avsAddress:   config.AvsAddress,
+		avsAddress:   avsAddress,
 		AggRpcClient: *aggClient,
 	}
 	return &operator, nil

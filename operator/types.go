@@ -3,12 +3,11 @@ package operator
 import (
 	"net/rpc"
 
-	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
 	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"golang.org/x/crypto/ed25519"
 
-	eigentypes "github.com/Layr-Labs/eigensdk-go/types"
+	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
 )
 
 type Config struct {
@@ -18,15 +17,14 @@ type Config struct {
 type Operator struct {
 	account *aptos.Account
 	// TODO: change this to aptos-sdk fork
-	operatorId   eigentypes.Bytes32
+	operatorId   []byte
 	avsAddress   aptos.AccountAddress
 	AggRpcClient AggregatorRpcClient
 }
 type OperatorConfig struct {
-	BlsKeyPair           *bls.KeyPair
-	OperatorAddress      aptos.AccountAddress
-	AvsAddress           aptos.AccountAddress
-	aggregatorIpPortAddr string
+	BlsPrivateKey        []byte
+	AvsAddress           string
+	AggregatorIpPortAddr string
 	// OperatorId           eigentypes.OperatorId
 }
 
@@ -46,8 +44,7 @@ type AlternativeSigner struct {
 
 type PubkeyRegistrationParams struct {
 	signature Signature
-	pubkey_g1 PublicKeyWithPoP
-	pubkey_g2 PublicKeyWithPoP
+	pubkey    PublicKeyWithPoP
 }
 
 type Signature struct {
@@ -61,13 +58,10 @@ type PublicKeyWithPoP struct {
 // Implement MarshalBCS
 func (params *PubkeyRegistrationParams) MarshalBCS(ser *bcs.Serializer) {
 	ser.WriteBytes(params.signature.bytes)
-	ser.WriteBytes(params.pubkey_g1.bytes)
-	ser.WriteBytes(params.pubkey_g2.bytes)
+	ser.WriteBytes(params.pubkey.bytes)
 }
 
 type AggregatorRpcClient struct {
 	rpcClient            *rpc.Client
 	aggregatorIpPortAddr string
 }
-
-
