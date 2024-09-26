@@ -4,11 +4,10 @@ module oracle::bls_apk_registry{
     use aptos_framework::timestamp;
 
     use aptos_std::crypto_algebra;
-    use aptos_std::bls12381::{AggrPublicKeysWithPoP, Signature, PublicKeyWithPoP, aggregate_pubkeys, aggregate_pubkey_to_bytes, public_key_with_pop_to_bytes, verify_signature_share};
+    use aptos_std::bls12381::{AggrPublicKeysWithPoP, Signature, PublicKeyWithPoP, aggregate_pubkeys, aggregate_pubkey_to_bytes, signature_from_bytes, proof_of_possession_from_bytes, public_key_from_bytes_with_pop, public_key_with_pop_to_bytes, verify_signature_share};
     use aptos_std::bls12381_algebra::{G1, FormatG1Uncompr};
     use aptos_std::smart_table::{Self, SmartTable};
-    use aptos_std::option::{Option};
-    use aptos_std::option;
+    use aptos_std::option::{Self, Option};
 
     use std::string::{Self, String};
     use std::vector;
@@ -132,7 +131,11 @@ module oracle::bls_apk_registry{
         update_quorum_apk(quorum_numbers, *pubkey, false)
     }
 
-    public(friend) fun register_bls_pubkey(operator: &signer, params: PubkeyRegistrationParams, msg: vector<u8>): vector<u8> acquires BLSApkRegistryStore {
+    public(friend) fun register_bls_pubkey(operator: &signer, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>, msg: vector<u8>): vector<u8> acquires BLSApkRegistryStore {
+        let pop = proof_of_possession_from_bytes(pop);
+        let pubkey_with_pop = public_key_from_bytes_with_pop(pubkey, &pop);
+        assert!(option::is_some(&pubkey_with_pop), EINVALID_pubkey);
+        let params = PubkeyRegistrationParams{ signature: signature_from_bytes(signature), pubkey:  *option::borrow(&pubkey_with_pop)};
         let pubkey_bytes = public_key_with_pop_to_bytes(&params.pubkey);
         assert!(vector::length(&pubkey_bytes) == 96, EINVALID_pubkey);
         let g1 = option::borrow(&crypto_algebra::deserialize<G1, FormatG1Uncompr>(&public_key_with_pop_to_bytes(&params.pubkey)));

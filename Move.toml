@@ -5,14 +5,12 @@ authors = []
 
 [addresses]
 aptos_framework = "0x1"
-deployer = "_"
-oracle = "_"
-middleware = "_"
-restaking = "_"
+restaking = "0x557fb0e4e44effc583b1f0b8bcb3dbc621c7db87e7321cdecd568858302abdca"
+deployer1 = "0x46e6cc3a13792af7f4287c474072d78a84d85fd5597416fc573c81fbcdb216b1"
+oracle = "0x797b12c9e55525e4ad3a1c171a2599cbfee0dd65c1176c3f7e425f1477726dfb"
 
 [dev-addresses]
-deployer = "0xa1d0e45e4c83457be89683fc96052bc34d7fb5f9bf7e5a708e6edcb0c53156bc"
-middleware = "0xabcfff"
+deployer1 = "0x46e6cc3a13792af7f4287c474072d78a84d85fd5597416fc573c81fbcdb216b1"
 restaking = "0xc3bb8488ab1a5815a9d543d7e41b0e0df46a7396f89b22821f07a4362f75ddc5"
 oracle = "0xab"
 
@@ -21,5 +19,8 @@ git = "https://github.com/aptos-labs/aptos-core.git"
 rev = "mainnet"
 subdir = "aptos-move/framework/aptos-framework"
 
+[dependencies.restaking]
+git = "https://github.com/decentrio/restaking-contracts"
+rev = "5d0a8e68d3525904c8b528cf378fe0376dc6a556"
+
 [dev-dependencies]
-restaking = { git = "https://github.com/decentrio/restaking-contracts", rev = "f14e36c849a4965962d4803d7031733d139a2cfe"}

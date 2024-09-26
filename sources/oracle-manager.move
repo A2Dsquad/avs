@@ -8,6 +8,7 @@ module oracle::oracle_manager {
 
     friend oracle::index_registry;
     friend oracle::bls_apk_registry;
+    friend oracle::bls_sig_checker;
     friend oracle::registry_coordinator;
     friend oracle::stake_registry;
     friend oracle::service_manager_base;
@@ -35,12 +36,12 @@ module oracle::oracle_manager {
     /// Initialize PermissionConfig to establish control over the resource account.
     /// This function is invoked only when this package is deployed the first time.
     fun init_module(staking_signer: &signer) acquires PermissionConfig {
-        let signer_cap = resource_account::retrieve_resource_account_cap(staking_signer, @deployer);
+        let signer_cap = resource_account::retrieve_resource_account_cap(staking_signer, @deployer1);
         move_to(staking_signer, PermissionConfig {
             addresses: smart_table::new<String, address>(),
             signer_cap,
         }); 
-        add_address(string::utf8(OWNER_NAME), @deployer);
+        add_address(string::utf8(OWNER_NAME), @deployer1);
     }
 
     /// Can be called by friended modules to obtain the resource account signer.

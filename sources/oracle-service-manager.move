@@ -152,8 +152,15 @@ module oracle::service_manager{
         aggregator: &signer,
         task_id: vector<u8>,
         sender: address,
-        non_signer_stakes_and_signature: bls_sig_checker::NonSignerStakesAndSignature,
-    ) acquires ServiceManagerStore, TaskCreatorBalanceStore {
+        nonsigner_quorum_bitmap_indices: vector<u32>,
+        nonsigner_pubkeys: vector<vector<u8>>,
+        quorum_aggr_pks: vector<vector<u8>>,
+        quorum_apk_indices: vector<u64>,
+        total_stake_indices: vector<u64>,
+        non_signer_stake_indices: vector<vector<u64>>,
+        aggr_pks: vector<u8>,
+        aggr_sig: vector<u8>
+    ) acquires ServiceManagerStore {
         let hash_data = vector<u8>[];
         vector::append(&mut hash_data, task_id);
         vector::append(&mut hash_data, task_creator_store_seeds(sender));
@@ -167,15 +174,22 @@ module oracle::service_manager{
         let task_state = smart_table::borrow_mut(&mut store_mut.tasks_state, task_identifier);
         task_state.responded = true;
         
-        let quorum_stake_totals = bls_sig_checker::check_signatures(
+        let (signed_stake_for_quorum, total_stake_for_quorum) = bls_sig_checker::check_signatures(
             task_identifier,
             vector::singleton(0),
             smart_table::borrow(&service_manager_store().tasks_state, task_identifier).task_created_timestamp,
-            non_signer_stakes_and_signature
+            nonsigner_quorum_bitmap_indices,
+            nonsigner_pubkeys,
+            quorum_aggr_pks,
+            quorum_apk_indices,
+            total_stake_indices,
+            non_signer_stake_indices,
+            aggr_pks,
+            aggr_sig
         );
 
-        let signed_stake = *vector::borrow(&quorum_stake_totals.signed_stake_for_quorum, 0);
-        let total_stake = *vector::borrow(&quorum_stake_totals.total_stake_for_quorum, 0);
+        let signed_stake = *vector::borrow(&signed_stake_for_quorum, 0);
+        let total_stake = *vector::borrow(&total_stake_for_quorum, 0);
         assert!((signed_stake * THRESHOLD_DENOMINATOR) >= (total_stake * QUORUM_THRESHOLD_PERCENTAGE), ETHRESHOLD_NOT_MEET);
     
         // TODO: distribute fee

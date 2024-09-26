@@ -13,7 +13,7 @@ module oracle::registry_coordinator{
     use restaking::staker_manager;
 
     use oracle::service_manager_base;
-    use oracle::bls_apk_registry;
+    use oracle::bls_apk_registry::{Self, PubkeyRegistrationParams};
     use oracle::stake_registry;
     use oracle::index_registry;
 
@@ -23,8 +23,7 @@ module oracle::registry_coordinator{
 
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::smart_vector::{Self, SmartVector};
-    use aptos_std::bn254_algebra::{G1, G2};
-    
+    use aptos_std::bls12381::{ Signature, PublicKeyWithPoP };
     use aptos_std::aptos_hash;
     use aptos_std::comparator;
 
@@ -45,12 +44,6 @@ module oracle::registry_coordinator{
         operator_infos: SmartTable<address, OperatorInfo>,
         operator_bitmap: SmartTable<vector<u8>, u256>,
         operator_bitmap_history: SmartTable<vector<u8>, vector<QuorumBitmapUpdate>>,
-    }
-
-    struct PubkeyRegistrationParams has copy, drop, store {
-        pubkey_registration_signature: vector<u8>,
-        pubkeyG1: vector<u8>,
-        pubkeyG2: vector<u8>,
     }
 
     struct OperatorInfo has copy, drop, store {
@@ -105,8 +98,8 @@ module oracle::registry_coordinator{
     }
 
     // TODO: not done
-    public entry fun registor_operator(quorum_numbers: vector<u8>, operator: &signer, params: bls_apk_registry::PubkeyRegistrationParams) acquires RegistryCoordinatorStore{
-        let operator_id = get_or_create_operator_id(operator, params);
+    public entry fun registor_operator(quorum_numbers: vector<u8>, operator: &signer,  signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>) acquires RegistryCoordinatorStore{
+        let operator_id = get_or_create_operator_id(operator, signature, pubkey, pop);
 
         let (_ , _ , num_operators_per_quorum) = register_operator_internal(operator, operator_id, quorum_numbers);
 
@@ -226,12 +219,12 @@ module oracle::registry_coordinator{
     }
 
 
-    fun get_or_create_operator_id(operator: &signer, params: bls_apk_registry::PubkeyRegistrationParams): vector<u8>{
+    fun get_or_create_operator_id(operator: &signer, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>): vector<u8>{
         let operator_address = signer::address_of(operator);
         let operator_id = bls_apk_registry::get_operator_id(operator_address);
         if (vector::is_empty(&operator_id)) {
             // TODO: help
-            operator_id = bls_apk_registry::register_bls_pubkey(operator, params, vector::empty<u8>());
+            operator_id = bls_apk_registry::register_bls_pubkey(operator, signature, pubkey, pop, vector::empty<u8>());
         };
         return operator_id
     }

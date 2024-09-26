@@ -29,22 +29,6 @@ module oracle::bls_sig_checker{
     const EINVALID_TIMESTAMP: u64 = 1113;
     const EQUORUM_APK_HASH_MISMATCH: u64 = 1114;
 
-    public struct NonSignerStakesAndSignature has drop, copy {
-        nonsigner_quorum_bitmap_indices: vector<u32>,
-        nonsigner_pubkeys: vector<PublicKeyWithPoP>,
-        quorum_aggr_pks: vector<AggrPublicKeysWithPoP>,
-        quorum_apk_indices: vector<u64>,
-        total_stake_indices: vector<u64>,
-        non_signer_stake_indices: vector<vector<u64>>,
-        aggr_pks: AggrPublicKeysWithPoP,
-        aggr_sig: AggrOrMultiSignature
-    }
-
-    public struct QuorumStakeTotals has drop, copy {
-        total_stake_for_quorum: vector<u128>,
-        signed_stake_for_quorum: vector<u128>
-    }
-
     struct BLSSigCheckerStore has key {
         stale_stakes_forbidden: bool
     }
@@ -100,19 +84,26 @@ module oracle::bls_sig_checker{
         msg_hash: vector<u8>, 
         quorum_numbers: vector<u8>, 
         reference_timestamp: u64, 
-        params: NonSignerStakesAndSignature
-    ): QuorumStakeTotals acquires BLSSigCheckerStore {
+        nonsigner_quorum_bitmap_indices: vector<u32>,
+        nonsigner_pubkeys: vector<vector<u8>>,
+        quorum_aggr_pks: vector<vector<u8>>,
+        quorum_apk_indices: vector<u64>,
+        total_stake_indices: vector<u64>,
+        non_signer_stake_indices: vector<vector<u64>>,
+        aggr_pks: vector<u8>,
+        aggr_sig: vector<u8>
+    ): (vector<u128>, vector<u128>) acquires BLSSigCheckerStore {
         let quorum_length = vector::length(&quorum_numbers);
         assert!(quorum_length > 0, EEMPTY_QUORUM);
         assert!(
-            (quorum_length == vector::length(&params.quorum_aggr_pks)) &&
-            (quorum_length == vector::length(&params.quorum_apk_indices)) &&
-            (quorum_length == vector::length(&params.total_stake_indices)) && 
-            (quorum_length == vector::length(&params.non_signer_stake_indices)),
+            (quorum_length == vector::length(&quorum_aggr_pks)) &&
+            (quorum_length == vector::length(&quorum_apk_indices)) &&
+            (quorum_length == vector::length(&total_stake_indices)) && 
+            (quorum_length == vector::length(&non_signer_stake_indices)),
             EINPUT_QUORUM_LENGTH_MISMATCH
         );
-        let nonsigner_pubkeys_length = vector::length(&params.nonsigner_pubkeys);
-        assert!(nonsigner_pubkeys_length == vector::length(&params.nonsigner_quorum_bitmap_indices), ENONSIGNER_LENGTH_MISMATCH);
+        let nonsigner_pubkeys_length = vector::length(&nonsigner_pubkeys);
+        assert!(nonsigner_pubkeys_length == vector::length(&nonsigner_quorum_bitmap_indices), ENONSIGNER_LENGTH_MISMATCH);
 
         let now = timestamp::now_seconds();
         assert!(reference_timestamp < now, EINVALID_TIMESTAMP);
@@ -123,7 +114,7 @@ module oracle::bls_sig_checker{
         let pubkey_hashes: vector<vector<u8>> = vector::empty();
 
         for (i in 0..(nonsigner_pubkeys_length-1)) {
-            let nonsigner_pubkey = bls12381::public_key_with_pop_to_bytes(vector::borrow(&params.nonsigner_pubkeys, i));
+            let nonsigner_pubkey = *vector::borrow(&nonsigner_pubkeys, i);
             let pubkey_hash = crypto_algebra::hash_to<G1, HashG1XmdSha256SswuRo>(&DST, &nonsigner_pubkey);
             let serialize_pk_hash = crypto_algebra::serialize<G1, FormatG1Uncompr>(&pubkey_hash);
 
@@ -142,18 +133,18 @@ module oracle::bls_sig_checker{
                 // TODO: registryCoordinator.quorumUpdateBlockNumber
             };
 
-            let quorum_apk = bls12381::aggregate_pubkey_to_bytes(vector::borrow(&params.quorum_aggr_pks, i));
+            let quorum_apk = *vector::borrow(&quorum_aggr_pks, i);
             let quorum_number = *vector::borrow(&quorum_numbers, i);
             assert!(bls_apk_registry::get_aggr_pk_hash_at_timestamp(
                 quorum_number,
                 reference_timestamp,
-                *vector::borrow(&params.quorum_apk_indices, i)
+                *vector::borrow(&quorum_apk_indices, i)
             ) == quorum_apk, EQUORUM_APK_HASH_MISMATCH);
 
             let total_stake_quorum = stake_registry::total_stake_at_timestamp_from_index(
                 quorum_number, 
                 reference_timestamp, 
-                *vector::borrow(&params.total_stake_indices, i)
+                *vector::borrow(&total_stake_indices, i)
             );
             vector::push_back(&mut total_stake_for_quorum, total_stake_quorum);
             vector::push_back(&mut signed_stake_for_quorum, total_stake_quorum);
@@ -168,7 +159,7 @@ module oracle::bls_sig_checker{
                         quorum_number, 
                         reference_timestamp, 
                         *operator_id,
-                        *vector::borrow(vector::borrow(&params.non_signer_stake_indices, i), nonsigner_quorum_index)
+                        *vector::borrow(vector::borrow(&non_signer_stake_indices, i), nonsigner_quorum_index)
                     );
                     nonsigner_quorum_index = nonsigner_quorum_index + 1;
                 }
@@ -176,10 +167,7 @@ module oracle::bls_sig_checker{
         };
         // TODO: check pairing
 
-        return QuorumStakeTotals{
-            total_stake_for_quorum, 
-            signed_stake_for_quorum
-        }
+        return (total_stake_for_quorum, signed_stake_for_quorum)
     }
 
     inline fun bls_sig_checker_signer(): &signer acquires BLSSigCheckerConfig{
