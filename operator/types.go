@@ -43,8 +43,8 @@ type AlternativeSigner struct {
 }
 
 type PubkeyRegistrationParams struct {
-	signature Signature
-	pubkey    PublicKeyWithPoP
+	signature []byte
+	pubkey    []byte
 }
 
 type Signature struct {
@@ -57,8 +57,8 @@ type PublicKeyWithPoP struct {
 
 // Implement MarshalBCS
 func (params *PubkeyRegistrationParams) MarshalBCS(ser *bcs.Serializer) {
-	ser.WriteBytes(params.signature.bytes)
-	ser.WriteBytes(params.pubkey.bytes)
+	ser.WriteBytes(params.signature)
+	ser.WriteBytes(params.pubkey)
 }
 
 type AggregatorRpcClient struct {

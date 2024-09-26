@@ -35,6 +35,8 @@ module oracle::registry_coordinator{
     const REGISTRY_COORDINATOR_NAME: vector<u8> = b"REGISTRY_COORDINATOR_NAME";
     const REGISTRY_COORDINATOR_PREFIX: vector<u8> = b"REGISTRY_COORDINATOR_PREFIX";
 
+    const REGISTER_MSG_HASH :vector<u8> = b"PubkeyRegistration";
+
     struct RegistryCoordinatorConfigs has key {
         signer_cap: SignerCapability,
     }
@@ -224,7 +226,11 @@ module oracle::registry_coordinator{
         let operator_id = bls_apk_registry::get_operator_id(operator_address);
         if (vector::is_empty(&operator_id)) {
             // TODO: help
-            operator_id = bls_apk_registry::register_bls_pubkey(operator, signature, pubkey, pop, vector::empty<u8>());
+            let msg: vector<u8> = vector::empty();
+            vector::append(&mut msg, REGISTER_MSG_HASH);
+            vector::append(&mut msg, bcs::to_bytes(&operator_address));
+            let msg_indentifier = aptos_hash::keccak256(msg);
+            operator_id = bls_apk_registry::register_bls_pubkey(operator, signature, pubkey, pop, msg_indentifier);
         };
         return operator_id
     }

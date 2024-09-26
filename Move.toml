@@ -5,9 +5,9 @@ authors = []
 
 [addresses]
 aptos_framework = "0x1"
-restaking = "0x557fb0e4e44effc583b1f0b8bcb3dbc621c7db87e7321cdecd568858302abdca"
-deployer1 = "0x46e6cc3a13792af7f4287c474072d78a84d85fd5597416fc573c81fbcdb216b1"
-oracle = "0x797b12c9e55525e4ad3a1c171a2599cbfee0dd65c1176c3f7e425f1477726dfb"
+restaking = "0xb88c2ee5a7d137e135e84c9a4d0e45baadde79aa350bd1639f4f822d0e23e881"
+deployer1 = "0xed025f9406fbfa91e133a1765d6fa0a90ed468d2c7ae894835a94a8c279cef9a"
+oracle = "0x4cf80d690648534a517991f0266e9522c8c6b6b218ca57703e0db9252217d4e9"
 
 [dev-addresses]
 deployer1 = "0x46e6cc3a13792af7f4287c474072d78a84d85fd5597416fc573c81fbcdb216b1"
@@ -21,6 +21,6 @@ subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.restaking]
 git = "https://github.com/A2Dsquad/restaking-contracts"
-rev = "5d0a8e68d3525904c8b528cf378fe0376dc6a556"
+rev = "eb39c39d09bb8da0add0de074ca22a3d51149e9a"
 
 [dev-dependencies]

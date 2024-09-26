@@ -7,6 +7,7 @@ import (
 	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/aptos-labs/aptos-go-sdk/crypto"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 type AptosAccountConfig struct {
@@ -48,7 +49,33 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 		// Register Operator
 		// TODO: minh help
 		// ignore error here because panic all the time
-		_ = RegisterOperator(client, operator_account, avsAddress.String(), quorumNumbers, PubkeyRegistrationParams{})
+		var priv crypto.BlsPrivateKey
+		msg := []byte("PubkeyRegistration")
+		bcsOperatorAccount, err := bcs.Serialize(&operator_account.Address)
+		if err != nil {
+			panic("Failed to bsc serialize account" + err.Error())
+		}
+
+		msg = append(msg, bcsOperatorAccount...)
+		keccakMsg := ethcrypto.Keccak256(msg)
+		err = priv.FromBytes(config.BlsPrivateKey)
+		if err != nil {
+			panic("Failed to create bls priv key" + err.Error())
+		}
+
+		signature, err := priv.Sign(keccakMsg)
+		if err != nil {
+			panic("Failed to create signature" + err.Error())
+		}
+		_ = RegisterOperator(
+			client,
+			operator_account,
+			avsAddress.String(),
+			quorumNumbers,
+			PubkeyRegistrationParams{
+				signature: signature.Auth.Signature().Bytes(),
+				pubkey:    signature.PubKey().Bytes(),
+			})
 	}
 
 	// connect to aggregator

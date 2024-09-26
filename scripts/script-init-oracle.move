@@ -6,6 +6,7 @@ script {
     oracle::bls_sig_checker::initialize();
     oracle::index_registry::initialize();
     oracle::stake_registry::initialize();
+    oracle::registry_coordinator::initialize();
     
   }
 }
