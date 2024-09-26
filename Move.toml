@@ -20,7 +20,7 @@ rev = "mainnet"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.restaking]
-git = "https://github.com/decentrio/restaking-contracts"
+git = "https://github.com/A2Dsquad/restaking-contracts"
 rev = "5d0a8e68d3525904c8b528cf378fe0376dc6a556"
 
 [dev-dependencies]
