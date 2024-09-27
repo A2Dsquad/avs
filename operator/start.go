@@ -67,6 +67,10 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 		if err != nil {
 			panic("Failed to create signature" + err.Error())
 		}
+		pop, err := priv.GenerateBlsPop()
+		if err != nil {
+			panic("Failed to generate bls proof of possession" + err.Error())
+		}
 		_ = RegisterOperator(
 			client,
 			operator_account,
@@ -74,8 +78,8 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 			quorumNumbers,
 			signature.Auth.Signature().Bytes(),
 			signature.PubKey().Bytes(),
-			crypto.GenerateBlsPop(keccakMsg),
-			)
+			pop.Bytes(),
+		)
 	}
 
 	// connect to aggregator

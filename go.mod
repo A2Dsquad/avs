@@ -48,7 +48,7 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/aptos-labs/aptos-go-sdk => github.com/decentrio/aptos-go-sdk v0.0.0-20240926152749-67f783aa7e45
+replace github.com/aptos-labs/aptos-go-sdk => github.com/decentrio/aptos-go-sdk v0.0.0-20240927062750-43c527b7eda6
 
 replace github.com/decentrio/oracle-avs => ./..
 

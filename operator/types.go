@@ -4,7 +4,6 @@ import (
 	"net/rpc"
 
 	aptos "github.com/aptos-labs/aptos-go-sdk"
-	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
@@ -42,23 +41,16 @@ type AlternativeSigner struct {
 	publicKey  ed25519.PublicKey
 }
 
-type PubkeyRegistrationParams struct {
-	signature []byte
-	pubkey    []byte
-}
-
 type Signature struct {
 	bytes []byte
 }
 
-type PublicKeyWithPoP struct {
+type PublicKey struct {
 	bytes []byte
 }
 
-// Implement MarshalBCS
-func (params *PubkeyRegistrationParams) MarshalBCS(ser *bcs.Serializer) {
-	ser.WriteBytes(params.signature)
-	ser.WriteBytes(params.pubkey)
+type Pop struct {
+	bytes []byte
 }
 
 type AggregatorRpcClient struct {
