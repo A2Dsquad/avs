@@ -29,10 +29,6 @@ module oracle::bls_sig_checker{
     const EINVALID_TIMESTAMP: u64 = 1113;
     const EQUORUM_APK_HASH_MISMATCH: u64 = 1114;
 
-    struct BLSSigCheckerStore has key {
-        stale_stakes_forbidden: bool
-    }
-
     struct BLSSigCheckerConfig has key {
         signer_cap: SignerCapability,
     }
@@ -57,24 +53,6 @@ module oracle::bls_sig_checker{
         oracle_manager::get_address(string::utf8(BLS_SIG_CHECKER_NAME))
     }
 
-    public fun create_bls_sig_checker_store() acquires BLSSigCheckerConfig{
-        let bls_sig_checker_signer = bls_sig_checker_signer();
-        move_to(bls_sig_checker_signer, BLSSigCheckerStore{
-            stale_stakes_forbidden: true,
-        })
-    }
-
-    public fun set_stale_stakes_forbidden(stale_stakes_forbidden: bool) acquires BLSSigCheckerStore{
-        let store = borrow_global_mut<BLSSigCheckerStore>(bls_sig_checker_address());
-        store.stale_stakes_forbidden = stale_stakes_forbidden;
-    }
-
-    #[view]
-    public fun get_stale_stakes_forbidden(): bool acquires BLSSigCheckerStore {
-        let store = borrow_global<BLSSigCheckerStore>(bls_sig_checker_address());
-        store.stale_stakes_forbidden
-    }
-
     #[view]
     public fun is_initialized(): bool{
         oracle_manager::address_exists(string::utf8(BLS_SIG_CHECKER_NAME))
@@ -92,7 +70,7 @@ module oracle::bls_sig_checker{
         non_signer_stake_indices: vector<vector<u64>>,
         aggr_pks: vector<u8>,
         aggr_sig: vector<u8>
-    ): (vector<u128>, vector<u128>) acquires BLSSigCheckerStore {
+    ): (vector<u128>, vector<u128>) {
         let quorum_length = vector::length(&quorum_numbers);
         assert!(quorum_length > 0, EEMPTY_QUORUM);
         assert!(
@@ -125,13 +103,10 @@ module oracle::bls_sig_checker{
             // TODO:
         };
 
-        let stale_stakes_forbidden = get_stale_stakes_forbidden();
-        let withdrawal_delay = if (stale_stakes_forbidden) withdrawal::minimum_withdrawal_delay() else 0;
+        let withdrawal_delay = withdrawal::minimum_withdrawal_delay();
         
         for (i in 0..(quorum_length - 1)) {
-            if (stale_stakes_forbidden) {
-                // TODO: registryCoordinator.quorumUpdateBlockNumber
-            };
+            // TODO: registryCoordinator.quorumUpdateBlockNumber
 
             let quorum_apk = *vector::borrow(&quorum_aggr_pks, i);
             let quorum_number = *vector::borrow(&quorum_numbers, i);

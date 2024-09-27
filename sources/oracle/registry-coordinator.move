@@ -100,17 +100,17 @@ module oracle::registry_coordinator{
     }
 
     // TODO: not done
-    public entry fun registor_operator(quorum_numbers: vector<u8>, operator: &signer,  signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>) acquires RegistryCoordinatorStore{
-        let operator_id = get_or_create_operator_id(operator, signature, pubkey, pop);
+    // public entry fun registor_operator(quorum_numbers: vector<u8>, operator: &signer,  signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>) acquires RegistryCoordinatorStore{
+    //     let operator_id = get_or_create_operator_id(operator, signature, pubkey, pop);
 
-        let (_ , _ , num_operators_per_quorum) = register_operator_internal(operator, operator_id, quorum_numbers);
+    //     let (_ , _ , num_operators_per_quorum) = register_operator_internal(operator, operator_id, quorum_numbers);
 
-        let quorum_numbers_length = vector::length(&quorum_numbers);
+    //     let quorum_numbers_length = vector::length(&quorum_numbers);
 
 
-        // TODO: limit num operators per quorum
-        return
-    }
+    //     // TODO: limit num operators per quorum
+    //     return
+    // }
 
     fun register_operator_internal(operator: &signer, operator_id: vector<u8>, quorum_numbers: vector<u8>): (vector<u128>, vector<u128>, vector<u32>) acquires RegistryCoordinatorStore {
         // TODO: using orderedBytesArrayToBitmap
@@ -220,8 +220,8 @@ module oracle::registry_coordinator{
         return bitmap
     }
 
-
-    fun get_or_create_operator_id(operator: &signer, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>): vector<u8>{
+    // TODO: remove public
+    public entry fun get_or_create_operator_id(operator: &signer, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>){
         let operator_address = signer::address_of(operator);
         let operator_id = bls_apk_registry::get_operator_id(operator_address);
         if (vector::is_empty(&operator_id)) {
@@ -230,9 +230,8 @@ module oracle::registry_coordinator{
             vector::append(&mut msg, REGISTER_MSG_HASH);
             vector::append(&mut msg, bcs::to_bytes(&operator_address));
             let msg_indentifier = aptos_hash::keccak256(msg);
-            operator_id = bls_apk_registry::register_bls_pubkey(operator, signature, pubkey, pop, msg_indentifier);
+            bls_apk_registry::register_bls_pubkey(operator, signature, pubkey, pop, msg_indentifier);
         };
-        return operator_id
     }
 
     fun pubkey_registration_message_hash(operator: &signer) {

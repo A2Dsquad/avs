@@ -198,7 +198,7 @@ module oracle::bls_apk_registry{
     #[view]
     public fun get_operator_id(operator: address): vector<u8> acquires BLSApkRegistryStore{
         let store = bls_apk_registry_store();
-        let operator_id = smart_table::borrow(&store.operator_to_pk_hash, operator);
+        let operator_id = smart_table::borrow_with_default(&store.operator_to_pk_hash, operator, &vector::empty<u8>());
         return *operator_id
     }
 

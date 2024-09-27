@@ -143,7 +143,7 @@ func RegisterOperator(
 	quorum_numbers []byte,
 	signature []byte,
 	pubkey []byte,
-	pop []byte,
+	proofPossession []byte,
 ) error {
 	contract := aptos.AccountAddress{}
 	err := contract.ParseStringRelaxed(contract_addr)
@@ -154,6 +154,22 @@ func RegisterOperator(
 	if err != nil {
 		panic("Failed to bcs serialize quorum:" + err.Error())
 	}
+	sig, err := bcs.SerializeBytes(signature)
+	if err != nil {
+		panic("Failed to bcs serialize signature:" + err.Error())
+	}
+	pk, err := bcs.SerializeBytes(pubkey)
+	if err != nil {
+		panic("Failed to bcs serialize pubkey:" + err.Error())
+	}
+	pop, err := bcs.SerializeBytes(proofPossession)
+	if err != nil {
+		panic("Failed to bcs serialize proof of possession:" + err.Error())
+	}
+	signer, err := bcs.Serialize(operator_account.Signer.SimulationAuthenticator())
+	if err != nil {
+		panic("Failed to bcs serialize signer:" + err.Error())
+	}
 	payload := aptos.EntryFunction{
 		Module: aptos.ModuleId{
 			Address: contract,
@@ -162,7 +178,7 @@ func RegisterOperator(
 		Function: "registor_operator",
 		ArgTypes: []aptos.TypeTag{},
 		Args: [][]byte{
-			quorum, operator_account.Signer.AuthKey().Bytes(), signature, pubkey, pop,
+			quorum, signer, sig, pk, pop,
 		},
 	}
 	// Build transaction

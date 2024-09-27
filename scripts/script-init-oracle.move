@@ -7,6 +7,9 @@ script {
     oracle::index_registry::initialize();
     oracle::stake_registry::initialize();
     oracle::registry_coordinator::initialize();
-    
+    oracle::registry_coordinator::create_registry_coordinator_store();
+    oracle::bls_apk_registry::create_bls_apk_registry_store();
+    oracle::index_registry::create_index_registry_store();
+    oracle::stake_registry::create_stake_regsitry_store();
   }
 }
