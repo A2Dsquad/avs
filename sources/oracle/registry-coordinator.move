@@ -283,7 +283,10 @@ module oracle::registry_coordinator{
     #[view]
     public fun get_operator_status(operator: address): u8 acquires RegistryCoordinatorStore {
         let store = registry_coordinator_store();
-        smart_table::borrow(&store.operator_infos, operator).operator_status
+        smart_table::borrow_with_default(&store.operator_infos, operator, &OperatorInfo{
+            operator_id: vector::empty<u8>(),
+            operator_status: 0,
+            }).operator_status
     }
 
     #[view]
