@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 
@@ -44,7 +45,12 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 	if !registered {
 		log.Println("Operator is not registered with A2D Oracle AVS, registering...")
 
-		quorumNumbers := []byte{0}
+		quorumCount := QuorumCount(client, avsAddress)
+		if quorumCount == 0 {
+			panic("No quorum found, please initialize quorum first ")
+		}
+
+		quorumNumbers := []uint64{quorumCount}
 
 		// Register Operator
 		// TODO: minh help
@@ -104,6 +110,29 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 	return &operator, nil
 }
 
+func InitQuorum(networkConfig aptos.NetworkConfig, config OperatorConfig, accountConfig AptosAccountConfig) error {
+
+	return nil
+}
+func QuorumCount(client *aptos.Client, contract aptos.AccountAddress) uint64 {
+	payload := &aptos.ViewPayload{
+		Module: aptos.ModuleId{
+			Address: contract,
+			Name:    "registry_coordinator",
+		},
+		Function: "quorum_count",
+		ArgTypes: []aptos.TypeTag{},
+		Args:     [][]byte{},
+	}
+
+	vals, err := client.View(payload)
+	if err != nil {
+		panic("Could not get quorum count:" + err.Error())
+	}
+	count := vals[0].(float64)
+	return uint64(count)
+}
+
 func IsOperatorRegistered(client *aptos.Client, contract aptos.AccountAddress, operator_addr string) bool {
 
 	account := aptos.AccountAddress{}
@@ -140,7 +169,7 @@ func RegisterOperator(
 	client *aptos.Client,
 	operator_account *aptos.Account,
 	contract_addr string,
-	quorum_numbers []byte,
+	quorum_numbers []uint64,
 	signature []byte,
 	pubkey []byte,
 	proofPossession []byte,
@@ -150,10 +179,9 @@ func RegisterOperator(
 	if err != nil {
 		panic("Failed to parse address:" + err.Error())
 	}
-	quorum, err := bcs.SerializeBytes(quorum_numbers)
-	if err != nil {
-		panic("Failed to bcs serialize quorum:" + err.Error())
-	}
+	quorumSerializer := &bcs.Serializer{}
+	bcs.SerializeSequence(quorum_numbers, quorumSerializer)
+
 	sig, err := bcs.SerializeBytes(signature)
 	if err != nil {
 		panic("Failed to bcs serialize signature:" + err.Error())
@@ -166,10 +194,9 @@ func RegisterOperator(
 	if err != nil {
 		panic("Failed to bcs serialize proof of possession:" + err.Error())
 	}
-	signer, err := bcs.Serialize(operator_account.Signer.SimulationAuthenticator())
-	if err != nil {
-		panic("Failed to bcs serialize signer:" + err.Error())
-	}
+	fmt.Println("sig: ", hex.EncodeToString(signature))
+	fmt.Println("pubkey: ", hex.EncodeToString(pubkey))
+	fmt.Println("proofPossession: ", hex.EncodeToString(proofPossession))
 	payload := aptos.EntryFunction{
 		Module: aptos.ModuleId{
 			Address: contract,
@@ -178,7 +205,7 @@ func RegisterOperator(
 		Function: "registor_operator",
 		ArgTypes: []aptos.TypeTag{},
 		Args: [][]byte{
-			quorum, signer, sig, pk, pop,
+			quorumSerializer.ToBytes(), sig, pk, pop,
 		},
 	}
 	// Build transaction

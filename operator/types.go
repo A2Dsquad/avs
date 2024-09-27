@@ -41,6 +41,10 @@ type AlternativeSigner struct {
 	publicKey  ed25519.PublicKey
 }
 
+type OperatorSetParam struct {
+	max_operator_count uint32
+}
+
 type Signature struct {
 	bytes []byte
 }

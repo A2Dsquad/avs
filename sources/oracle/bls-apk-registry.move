@@ -4,7 +4,7 @@ module oracle::bls_apk_registry{
     use aptos_framework::timestamp;
 
     use aptos_std::crypto_algebra;
-    use aptos_std::bls12381::{AggrPublicKeysWithPoP, Signature, PublicKeyWithPoP, aggregate_pubkeys, aggregate_pubkey_to_bytes, signature_from_bytes, proof_of_possession_from_bytes, public_key_from_bytes_with_pop, public_key_with_pop_to_bytes, verify_signature_share};
+    use aptos_std::bls12381::{AggrPublicKeysWithPoP, Signature, PublicKeyWithPoP, aggregate_pubkeys, aggregate_pubkey_to_bytes, signature_from_bytes, proof_of_possession_from_bytes, proof_of_possession_to_bytes, public_key_from_bytes_with_pop, public_key_with_pop_to_bytes, verify_signature_share};
     use aptos_std::bls12381_algebra::{G1, FormatG1Uncompr};
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::option::{Self, Option};
@@ -25,7 +25,8 @@ module oracle::bls_apk_registry{
     const EQUORUM_ALREADY_EXIST: u64 = 1101;
     const EQUORUM_DOES_NOT_EXIST: u64 = 1102;
     const EZERO_PUBKEY: u64 = 1103;
-    const EINVALID_pubkey: u64 = 1104;
+    const EINVALID_PUBKEY_1: u64 = 1104;
+    const EINVALID_PUBKEY_2: u64 = 1111;
     const EINVALID_PUBKEY_G2: u64 = 1105;
     const EOPERATOR_ALREADY_EXIST: u64 = 1106;
     const EPUBKEY_ALREADY_EXIST: u64 = 1107;
@@ -134,13 +135,10 @@ module oracle::bls_apk_registry{
     public(friend) fun register_bls_pubkey(operator: &signer, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>, msg: vector<u8>): vector<u8> acquires BLSApkRegistryStore {
         let pop = proof_of_possession_from_bytes(pop);
         let pubkey_with_pop = public_key_from_bytes_with_pop(pubkey, &pop);
-        assert!(option::is_some(&pubkey_with_pop), EINVALID_pubkey);
+        assert!(option::is_some(&pubkey_with_pop), EINVALID_PUBKEY_1);
         let params = PubkeyRegistrationParams{ signature: signature_from_bytes(signature), pubkey:  *option::borrow(&pubkey_with_pop)};
         let pubkey_bytes = public_key_with_pop_to_bytes(&params.pubkey);
-        assert!(vector::length(&pubkey_bytes) == 96, EINVALID_pubkey);
-        let g1 = option::borrow(&crypto_algebra::deserialize<G1, FormatG1Uncompr>(&public_key_with_pop_to_bytes(&params.pubkey)));
-        let zero_g1 = crypto_algebra::zero<G1>();
-        assert!(!crypto_algebra::eq(g1, &zero_g1), EZERO_PUBKEY);
+        assert!(vector::length(&pubkey_bytes) == 48, EINVALID_PUBKEY_2);
 
         let store = bls_apk_registry_store();
         let operator_address = signer::address_of(operator);
@@ -162,7 +160,8 @@ module oracle::bls_apk_registry{
         let i = 0;
         while (i < vector::length(&quorum_numbers)) {
             let quorum_number = *vector::borrow(&quorum_numbers, i);
-            let apk_history_length = vector::length(smart_table::borrow(&bls_apk_registry_store().apk_history, quorum_number));
+            let apk_history_length = vector::length(smart_table::borrow_with_default(&bls_apk_registry_store().apk_history, quorum_number, &vector::empty()));
+            assert!(false, quorum_number as u64);
             assert!(apk_history_length > 0, EQUORUM_DOES_NOT_EXIST);
 
             // Update pubkey

@@ -3,6 +3,7 @@ module oracle-avs
 require (
 	github.com/Layr-Labs/eigensdk-go v0.1.12
 	github.com/aptos-labs/aptos-go-sdk v0.7.0
+	github.com/cosmos/crypto v0.1.2
 	github.com/ethereum/go-ethereum v1.14.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.8.1
@@ -20,7 +21,6 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.12.1 // indirect
-	github.com/cosmos/crypto v0.1.2 // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.0.0 // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
@@ -49,8 +49,8 @@ require (
 )
 
 replace (
-	github.com/aptos-labs/aptos-go-sdk => github.com/decentrio/aptos-go-sdk v0.0.0-20240927062750-43c527b7eda6
-	github.com/cosmos/crypto => github.com/decentrio/crypto v0.1.3-0.20240927062649-7a497320b85c
+	github.com/aptos-labs/aptos-go-sdk => ../aptos-go-sdk
+	github.com/cosmos/crypto => ../crypto
 	github.com/decentrio/oracle-avs => ./..
 
 )

@@ -100,17 +100,17 @@ module oracle::registry_coordinator{
     }
 
     // TODO: not done
-    // public entry fun registor_operator(quorum_numbers: vector<u8>, operator: &signer,  signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>) acquires RegistryCoordinatorStore{
-    //     let operator_id = get_or_create_operator_id(operator, signature, pubkey, pop);
+    public entry fun registor_operator(operator: &signer,  quorum_numbers: vector<u8>, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>) acquires RegistryCoordinatorStore{
+        let operator_id = get_or_create_operator_id(operator, signature, pubkey, pop);
 
-    //     let (_ , _ , num_operators_per_quorum) = register_operator_internal(operator, operator_id, quorum_numbers);
+        let (_ , _ , num_operators_per_quorum) = register_operator_internal(operator, operator_id, quorum_numbers);
 
-    //     let quorum_numbers_length = vector::length(&quorum_numbers);
+        let quorum_numbers_length = vector::length(&quorum_numbers);
 
 
-    //     // TODO: limit num operators per quorum
-    //     return
-    // }
+        // TODO: limit num operators per quorum
+        return
+    }
 
     fun register_operator_internal(operator: &signer, operator_id: vector<u8>, quorum_numbers: vector<u8>): (vector<u128>, vector<u128>, vector<u32>) acquires RegistryCoordinatorStore {
         // TODO: using orderedBytesArrayToBitmap
@@ -120,18 +120,18 @@ module oracle::registry_coordinator{
         assert!(quorum_to_add!=0, 301);
         // TODO: assert no bit in common
         let new_bitmap = current_bitmap | quorum_to_add;
-
         update_operator_bitmap(operator_id, new_bitmap);
 
         let mut_store = mut_registry_coordinator_store();
         let operator_address = signer::address_of(operator);
-        let mut_operator_info = smart_table::borrow_mut(&mut mut_store.operator_infos, operator_address);
+        
+        let mut_operator_info = smart_table::borrow_mut_with_default(&mut mut_store.operator_infos, operator_address, OperatorInfo{
+            operator_id: operator_id,
+            operator_status: 0
+        });
         
         if (mut_operator_info.operator_status != 1) {
-            *mut_operator_info = OperatorInfo{
-                operator_id: operator_id,
-                operator_status: 1,
-            };
+            mut_operator_info.operator_status = 1;
             // TODO: 
             operator_manager::create_operator_store(operator_address);
         };
@@ -221,7 +221,7 @@ module oracle::registry_coordinator{
     }
 
     // TODO: remove public
-    public entry fun get_or_create_operator_id(operator: &signer, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>){
+    fun get_or_create_operator_id(operator: &signer, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>): vector<u8>{
         let operator_address = signer::address_of(operator);
         let operator_id = bls_apk_registry::get_operator_id(operator_address);
         if (vector::is_empty(&operator_id)) {
@@ -230,8 +230,9 @@ module oracle::registry_coordinator{
             vector::append(&mut msg, REGISTER_MSG_HASH);
             vector::append(&mut msg, bcs::to_bytes(&operator_address));
             let msg_indentifier = aptos_hash::keccak256(msg);
-            bls_apk_registry::register_bls_pubkey(operator, signature, pubkey, pop, msg_indentifier);
+            operator_id = bls_apk_registry::register_bls_pubkey(operator, signature, pubkey, pop, msg_indentifier);
         };
+        return operator_id
     }
 
     fun pubkey_registration_message_hash(operator: &signer) {
@@ -240,7 +241,7 @@ module oracle::registry_coordinator{
 
     fun current_operator_bitmap(operator_id: vector<u8>):u256 acquires RegistryCoordinatorStore {
         let store = registry_coordinator_store();
-        let operator_bitmap_history_length = vector::length(smart_table::borrow(&store.operator_bitmap_history, operator_id));
+        let operator_bitmap_history_length = vector::length(smart_table::borrow_with_default(&store.operator_bitmap_history, operator_id, &vector::empty()));
         if (operator_bitmap_history_length == 0) {
             return 0
         } else {
@@ -250,15 +251,15 @@ module oracle::registry_coordinator{
 
     fun update_operator_bitmap(operator_id : vector<u8>, new_bitmap: u256) acquires RegistryCoordinatorStore {
         let mut_store = mut_registry_coordinator_store();
-        let mut_operator_bitmap = smart_table::borrow_mut(&mut mut_store.operator_bitmap_history, operator_id);
-        let history_length = vector::length(mut_operator_bitmap);
-        if (history_length == 0) {
-            vector::push_back(mut_operator_bitmap, QuorumBitmapUpdate{
+        if (!smart_table::contains(&mut_store.operator_bitmap_history, operator_id)) {
+            smart_table::add(&mut mut_store.operator_bitmap_history, operator_id, vector::singleton(QuorumBitmapUpdate{
                 update_timestamp: timestamp::now_seconds(),
                 next_update_timestamp: 0,
                 quorum_bitmap: new_bitmap,
-            })
+            }));
         } else {
+            let mut_operator_bitmap = smart_table::borrow_mut(&mut mut_store.operator_bitmap_history, operator_id);
+            let history_length = vector::length(mut_operator_bitmap);
             let last_update = vector::borrow_mut(mut_operator_bitmap, history_length-1);
             if (last_update.update_timestamp == timestamp::now_seconds()) {
                 last_update.quorum_bitmap = new_bitmap;

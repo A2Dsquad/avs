@@ -33,6 +33,7 @@ func OperatorCommand(zLogger *zap.Logger) *cobra.Command {
 	operatorCmd.AddCommand(
 		Start(zLogger),                // Example: 'operator start'
 		CreateOperatorConfig(zLogger), // Example: 'operator create-key'
+		InitializeQuorum(zLogger),     // Example: 'operator initialize-quorum'
 	)
 
 	return operatorCmd
@@ -86,6 +87,52 @@ func CreateOperatorConfig(logger *zap.Logger) *cobra.Command {
 	return cmd
 }
 
+func InitializeQuorum(logger *zap.Logger) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "initialize-quorum",
+		Short: "initialize-quorum",
+		Args:  cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			aptosPath, err := cmd.Flags().GetString(flagAptosConfigPath)
+			if err != nil {
+				return errors.Wrap(err, flagAptosConfigPath)
+			}
+			accountProfile, err := cmd.Flags().GetString(flagAccountProfile)
+			if err != nil {
+				return errors.Wrap(err, flagAccountProfile)
+			}
+			network, err := cmd.Flags().GetString(flagAptosNetwork)
+			if err != nil {
+				return errors.Wrap(err, flagAptosNetwork)
+			}
+			operatorConfigPath, err := cmd.Flags().GetString(flagAvsOperatorConfig)
+			if err != nil {
+				return errors.Wrap(err, flagAvsOperatorConfig)
+			}
+
+			networkConfig, err := extractNetwork(network)
+			if err != nil {
+				return fmt.Errorf("wrong config: %s", err)
+			}
+			operatorConfig, err := loadOperatorConfig(operatorConfigPath)
+			if err != nil {
+				return fmt.Errorf("can not load operator config: %s", err)
+			}
+
+			err = InitQuorum(
+				networkConfig,
+				*operatorConfig,
+				AptosAccountConfig{
+					configPath: aptosPath,
+					profile:    accountProfile,
+				},
+			)
+			return err
+		},
+	}
+	cmd.Flags().String(flagAvsOperatorConfig, "config/config.json", "see the example at config/example.json")
+	return cmd
+}
 func Start(logger *zap.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
