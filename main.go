@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"oracle-avs/operator"
 	"os"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -108,29 +109,7 @@ func example(network aptos.NetworkConfig) {
 		panic("Failed to create client:" + err.Error())
 	}
 
-	println("We create a signer that we are calling 'externally' to the Go SDK, this could be on another server")
-	publicKey, privateKey, _ := ed25519.GenerateKey(nil)
-	signer := &AlternativeSigner{
-		privateKey, publicKey,
-	}
-
-	// Create the sender from the key locally
-	sender, err := aptos.NewAccountFromSigner(signer)
-	if err != nil {
-		panic("Failed to create sender:" + err.Error())
-	}
-
-	// Fund the sender with the faucet to create it on-chain
-	err = client.Fund(sender.Address, 100_000_000)
-	fmt.Printf("We fund the signer account %s with the faucet\n", sender.Address.String())
-
-	// Prep arguments
-	receiver := aptos.AccountAddress{}
-	err = receiver.ParseStringRelaxed("0xBEEF")
-	if err != nil {
-		panic("Failed to parse address:" + err.Error())
-	}
-
+	sender, err := operator.SignerFromConfig(".aptos/config.yaml", "default")
 	contract := aptos.AccountAddress{}
 	err = contract.ParseStringRelaxed("0xc453ce803fb6f9720d7dec971c3ded0beb633c28e09ef2f5809e4964c9d5d8e2")
 	if err != nil {
@@ -162,7 +141,6 @@ func example(network aptos.NetworkConfig) {
 	if err != nil {
 		panic("Failed to sign transaction:" + err.Error())
 	}
-	fmt.Printf("Submit a coin transfer to address %s\n", receiver.String())
 
 	// Submit and wait for it to complete
 	submitResult, err := client.SubmitTransaction(signedTxn)
@@ -182,5 +160,8 @@ func example(network aptos.NetworkConfig) {
 
 // main This example shows you how to make an alternative signer for the SDK, if you prefer a different library
 func main() {
-	example(aptos.DevnetConfig)
+	// example(aptos.DevnetConfig)
+	a, err := operator.SignerFromConfig(".aptos/config.yaml", "default")
+	fmt.Println("a: ", a.Address.String())
+	fmt.Println("err: ", err)
 }

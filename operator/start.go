@@ -72,18 +72,18 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 			operator_account,
 			avsAddress.String(),
 			quorumNumbers,
-			PubkeyRegistrationParams{
-				signature: signature.Auth.Signature().Bytes(),
-				pubkey:    signature.PubKey().Bytes(),
-			})
+			signature.Auth.Signature().Bytes(),
+			signature.PubKey().Bytes(),
+			crypto.GenerateBlsPop(keccakMsg),
+			)
 	}
 
 	// connect to aggregator
 	// NewAggregatorRpcClient()
 	aggClient, err := NewAggregatorRpcClient(config.AggregatorIpPortAddr)
-	if err != nil {
-		return nil, fmt.Errorf("can not create aggregator rpc client: %s", err)
-	}
+	// if err != nil {
+	// 	return nil, fmt.Errorf("can not create aggregator rpc client: %s", err)
+	// }
 
 	// Get OperatorId
 	var privKey crypto.BlsPrivateKey
@@ -101,6 +101,16 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 }
 
 func IsOperatorRegistered(client *aptos.Client, contract aptos.AccountAddress, operator_addr string) bool {
+
+	account := aptos.AccountAddress{}
+	err := account.ParseStringRelaxed(operator_addr)
+	if err != nil {
+		panic("Could not ParseStringRelaxed:" + err.Error())
+	}
+	operator, err := bcs.Serialize(&account)
+	if err != nil {
+		panic("Could not serialize operator address:" + err.Error())
+	}
 	payload := &aptos.ViewPayload{
 		Module: aptos.ModuleId{
 			Address: contract,
@@ -108,15 +118,17 @@ func IsOperatorRegistered(client *aptos.Client, contract aptos.AccountAddress, o
 		},
 		Function: "get_operator_status",
 		ArgTypes: []aptos.TypeTag{},
-		Args:     [][]byte{[]byte(operator_addr)},
+		Args: [][]byte{
+			operator,
+		},
 	}
 
 	vals, err := client.View(payload)
 	if err != nil {
 		panic("Could not get operator status:" + err.Error())
 	}
-	status := vals[0].(uint8)
-	return status == 0
+	status := vals[0].(float64)
+	return status != 0
 }
 
 // quorum_numbers: vector<u8>, operator: &signer, params: bls_apk_registry::PubkeyRegistrationParams
@@ -125,7 +137,9 @@ func RegisterOperator(
 	operator_account *aptos.Account,
 	contract_addr string,
 	quorum_numbers []byte,
-	bls_register_params PubkeyRegistrationParams,
+	signature []byte,
+	pubkey []byte,
+	pop []byte,
 ) error {
 	contract := aptos.AccountAddress{}
 	err := contract.ParseStringRelaxed(contract_addr)
@@ -136,10 +150,6 @@ func RegisterOperator(
 	if err != nil {
 		panic("Failed to bcs serialize quorum:" + err.Error())
 	}
-	params, err := bcs.Serialize(&bls_register_params)
-	if err != nil {
-		panic("Failed to bcs serialize bls_register_params:" + err.Error())
-	}
 	payload := aptos.EntryFunction{
 		Module: aptos.ModuleId{
 			Address: contract,
@@ -148,7 +158,7 @@ func RegisterOperator(
 		Function: "registor_operator",
 		ArgTypes: []aptos.TypeTag{},
 		Args: [][]byte{
-			quorum, operator_account.Signer.AuthKey().Bytes(), params,
+			quorum, operator_account.Signer.AuthKey().Bytes(), signature, pubkey, pop,
 		},
 	}
 	// Build transaction
