@@ -48,11 +48,6 @@ module oracle::bls_apk_registry{
         next_update_timestamp: u64
     }
 
-    struct PubkeyRegistrationParams has copy, drop {
-        signature: Signature,
-        pubkey: PublicKeyWithPoP
-    }
-
     struct BLSApkRegistryConfigs has key {
         signer_cap: SignerCapability,
     }
@@ -136,19 +131,21 @@ module oracle::bls_apk_registry{
         let pop = proof_of_possession_from_bytes(pop);
         let pubkey_with_pop = public_key_from_bytes_with_pop(pubkey, &pop);
         assert!(option::is_some(&pubkey_with_pop), EINVALID_PUBKEY_1);
-        let params = PubkeyRegistrationParams{ signature: signature_from_bytes(signature), pubkey:  *option::borrow(&pubkey_with_pop)};
-        let pubkey_bytes = public_key_with_pop_to_bytes(&params.pubkey);
+        let unwrapped_pubkey = option::borrow(&pubkey_with_pop);
+        let pubkey_bytes = public_key_with_pop_to_bytes(unwrapped_pubkey);
         assert!(vector::length(&pubkey_bytes) == 48, EINVALID_PUBKEY_2);
+        //     let params = PubkeyRegistrationParams{ signature: signature_from_bytes(signature), pubkey:  *option::borrow(&pubkey_with_pop)};
+        // let pubkey_bytes = public_key_with_pop_to_bytes(&params.pubkey);
 
         let store = bls_apk_registry_store();
         let operator_address = signer::address_of(operator);
         assert!(!smart_table::contains(&store.operator_to_pk_hash, operator_address), EOPERATOR_ALREADY_EXIST);
         assert!(!smart_table::contains(&store.pk_hash_to_operator, pubkey_bytes), EPUBKEY_ALREADY_EXIST);
 
-        assert!(verify_signature_share(&params.signature, &params.pubkey, msg), ESIGNATURE_INVALID);
+        assert!(verify_signature_share(&signature_from_bytes(signature), unwrapped_pubkey, msg), ESIGNATURE_INVALID);
 
         let store_mut = bls_apk_registry_store_mut();
-        smart_table::upsert(&mut store_mut.operator_to_pk, operator_address, params.pubkey);
+        smart_table::upsert(&mut store_mut.operator_to_pk, operator_address, *option::borrow(&pubkey_with_pop));
         smart_table::upsert(&mut store_mut.operator_to_pk_hash, operator_address, pubkey_bytes);
         smart_table::upsert(&mut store_mut.pk_hash_to_operator, pubkey_bytes, operator_address);
         
@@ -161,7 +158,7 @@ module oracle::bls_apk_registry{
         while (i < vector::length(&quorum_numbers)) {
             let quorum_number = *vector::borrow(&quorum_numbers, i);
             let apk_history_length = vector::length(smart_table::borrow_with_default(&bls_apk_registry_store().apk_history, quorum_number, &vector::empty()));
-            assert!(false, quorum_number as u64);
+            
             assert!(apk_history_length > 0, EQUORUM_DOES_NOT_EXIST);
 
             // Update pubkey

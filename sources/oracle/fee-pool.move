@@ -17,7 +17,6 @@ module oracle::fee_pool{
         token_store: Object<FungibleStore>,
     }
 
-    // Create the pool manager account to host all the staking pools.
     public(friend) fun ensure_fee_pool(token: Object<Metadata>): Object<FeePool> {
         let seeds = get_pool_seeds(token);
 
