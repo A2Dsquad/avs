@@ -62,14 +62,13 @@ module oracle::bls_sig_checker{
         msg_hash: vector<u8>, 
         quorum_numbers: vector<u8>, 
         reference_timestamp: u64, 
-        nonsigner_quorum_bitmap_indices: vector<u32>,
         nonsigner_pubkeys: vector<vector<u8>>,
         quorum_aggr_pks: vector<vector<u8>>,
         quorum_apk_indices: vector<u64>,
         total_stake_indices: vector<u64>,
         non_signer_stake_indices: vector<vector<u64>>,
-        aggr_pks: vector<u8>,
-        aggr_sig: vector<u8>
+        aggr_pks: vector<vector<u8>>,
+        aggr_sig: vector<vector<u8>>
     ): (vector<u128>, vector<u128>) {
         let quorum_length = vector::length(&quorum_numbers);
         assert!(quorum_length > 0, EEMPTY_QUORUM);
@@ -81,7 +80,6 @@ module oracle::bls_sig_checker{
             EINPUT_QUORUM_LENGTH_MISMATCH
         );
         let nonsigner_pubkeys_length = vector::length(&nonsigner_pubkeys);
-        assert!(nonsigner_pubkeys_length == vector::length(&nonsigner_quorum_bitmap_indices), ENONSIGNER_LENGTH_MISMATCH);
 
         let now = timestamp::now_seconds();
         assert!(reference_timestamp < now, EINVALID_TIMESTAMP);

@@ -68,8 +68,7 @@
 2. `avs::service_manager::TaskCreatorBalanceStore`:
 - Created for each cluster of AVS services.
 - Keep track token balance of each task creator in avs
-// TODO:
-- 
+- When a task creator deposit some token to the contract, fa will be store in fee pool and the balance of that token will be store here. 
 
 ```move
     struct TaskCreatorBalanceStore has key, store {
@@ -79,8 +78,7 @@
 
 3. `avs::service_manager::FeePool`:
 - Created for each cluster of AVS services.
-// TODO: 
-- Stores data for 
+- Stores FA for task when a task creator deposit, it will be distribute to operator that fulfill the task with correct data.
 
 ```move
     struct FeePool has key {
@@ -218,7 +216,7 @@
 - Perform on chain BLS signature validation for the aggregate of a quorum's registered Operators.
 
 6. `avs::fee_pool`:
-- TODO
+- Store the whole contract's fungible asset 
 
 6. `avs::service_manager`:
 - Endpoint for user to create tasks and for operator to resolve tasks
@@ -281,15 +279,21 @@ Called by operator to deregistor from quorums
 ```move
       public entry fun create_quorum(
         owner: &signer,
-        operator_set_params: OperatorSetParam, 
+        operator_set_params: OperatorSetParam { max_operator_count : u32}, 
         minumum_stake: u128, 
-        strategy_params: vector<stake_registry::StrategyParams>
+        strategies: vector<address>, 
+        multipliers: vector<u128>
       ) acquires RegistryCoordinatorStore, RegistryCoordinatorConfigs
+    
+
 ```
 
 Create a quorum and record it configuration. Can only called by owner of the AVS.
 
-// TODO
+`operator_set_params`: maximum operator could be created in a quorum
+`minumum_stake`: minimum stake amount for a operator to join the quorum
+`strategies`: FA address that the quorum allow
+`multipliers`: used for calculate operator's weight in quorum (corresponding with strategies)
 
 // TODO: add updateOperatorsForQuorum
 
@@ -343,14 +347,13 @@ Called by anyone, mainly AVS consumer to have a new task created.
         aggregator: &signer,
         task_id: vector<u8>,
         sender: address,
-        nonsigner_quorum_bitmap_indices: vector<u32>,
         nonsigner_pubkeys: vector<vector<u8>>,
         quorum_aggr_pks: vector<vector<u8>>,
         quorum_apk_indices: vector<u64>,
         total_stake_indices: vector<u64>,
         non_signer_stake_indices: vector<vector<u64>>,
-        aggr_pks: vector<u8>,
-        aggr_sig: vector<u8>
+        aggr_pks: vector<vector<u8>>,
+        aggr_sig: vector<vector<u8>>
     ) acquires ServiceManagerStore
 ```
 
@@ -360,11 +363,19 @@ Called by aggregator to resolve a task.
 
 `sender`: the address of the task creator
 
-`nonsigner_quorum_bitmap_indices`: 
+`nonsigner_pubkeys`: pubkey of operator that does not fulfill the task, the hash of it will be used as operator id
 
-`nonsigner_pubkeys`: 
+`quorum_aggr_pks`: aggregate of all operator pubkeys base on quorum number
 
-// TODO:
+`quorum_apk_indices`: index of quorum_aggr_pks, used to query aggr_pk_hash in bls_apk_registry
+
+`total_stake_indices`: index of total stake,  used to query total_stake_at_timestamp in stake_registry
+
+`non_signer_stake_indices`: index of non-signer stake, used to query stake_at_timestamp_and_index
+
+`aggr_pks`: aggregate of signed operator pubkeys, used to validate signatures meets quorum
+
+`aggr_sig`: aggregate of signed operator signature, used to validate signatures meets quorum
 
 ### View functions
 

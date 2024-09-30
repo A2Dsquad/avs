@@ -152,14 +152,13 @@ module oracle::service_manager{
         aggregator: &signer,
         task_id: vector<u8>,
         sender: address,
-        nonsigner_quorum_bitmap_indices: vector<u32>,
         nonsigner_pubkeys: vector<vector<u8>>,
         quorum_aggr_pks: vector<vector<u8>>,
         quorum_apk_indices: vector<u64>,
         total_stake_indices: vector<u64>,
         non_signer_stake_indices: vector<vector<u64>>,
-        aggr_pks: vector<u8>,
-        aggr_sig: vector<u8>
+        aggr_pks: vector<vector<u8>>,
+        aggr_sig: vector<vector<u8>>
     ) acquires ServiceManagerStore {
         let hash_data = vector<u8>[];
         vector::append(&mut hash_data, task_id);
@@ -178,7 +177,6 @@ module oracle::service_manager{
             task_identifier,
             vector::singleton(0),
             smart_table::borrow(&service_manager_store().tasks_state, task_identifier).task_created_timestamp,
-            nonsigner_quorum_bitmap_indices,
             nonsigner_pubkeys,
             quorum_aggr_pks,
             quorum_apk_indices,
