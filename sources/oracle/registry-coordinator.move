@@ -144,8 +144,8 @@ module oracle::registry_coordinator{
         return (operator_stakes, total_stakes, num_operators_per_quorum)
     }
 
-    public fun deregister_operator(operator: &signer, quorumNumbers: vector<u8>) acquires RegistryCoordinatorStore{
-        deregister_operator_internal(operator, quorumNumbers);
+    public fun deregister_operator(operator: &signer, quorum_numbers: vector<u8>) acquires RegistryCoordinatorStore{
+        deregister_operator_internal(operator, quorum_numbers);
     }
 
     fun deregister_operator_internal(operator: &signer, quorum_numbers: vector<u8>) acquires RegistryCoordinatorStore {
@@ -175,6 +175,14 @@ module oracle::registry_coordinator{
         bls_apk_registry::deregister_operator(operator, quorum_numbers);
         stake_registry::deregister_operator(operator_id, quorum_numbers);
         index_registry::deregister_operator(operator_id, quorum_numbers);
+    }
+
+    public entry fun update_operators_for_quorum(
+        aggregator: &signer,
+        quorum_numbers: vector<u8>,
+        opertors_per_quorum: vector<vector<address>>,
+    ) {
+        // TODO
     }
 
 

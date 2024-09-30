@@ -275,7 +275,6 @@ Called by operator to deregistor from quorums
 
 3. Create quorum
 
-
 ```move
       public entry fun create_quorum(
         owner: &signer,
@@ -285,7 +284,6 @@ Called by operator to deregistor from quorums
         multipliers: vector<u128>
       ) acquires RegistryCoordinatorStore, RegistryCoordinatorConfigs
     
-
 ```
 
 Create a quorum and record it configuration. Can only called by owner of the AVS.
@@ -295,9 +293,22 @@ Create a quorum and record it configuration. Can only called by owner of the AVS
 `strategies`: FA address that the quorum allow
 `multipliers`: used for calculate operator's weight in quorum (corresponding with strategies)
 
-// TODO: add updateOperatorsForQuorum
+4. Update operators for quorum
 
-4. Set operator set param
+Aggregator will call this function repeatedly to update the operators in quorum
+
+```move
+     public entry fun update_operators_for_quorum(
+        aggregator: &signer,
+        quorum_numbers: vector<u8>,
+        opertors_per_quorum: vector<vector<address>>,
+    ) acquires RegistryCoordinatorConfigs, RegistryCoordinatorStore
+```
+
+`quorum_numbers`: quorums that need update operator
+`opertors_per_quorum`: operator adresses each quorum
+
+5. Set operator set param
 
 ```move
     public entry fun set_operator_set_params(
