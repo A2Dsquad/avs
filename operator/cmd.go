@@ -86,7 +86,7 @@ func CreateOperatorConfig(logger *zap.Logger) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().String(flagAvsOperatorConfig, "config/config.json", "see the example at config/example.json")
+	cmd.Flags().String(flagAvsOperatorConfig, "config/operator-config.json", "see the example at config/example.json")
 	return cmd
 }
 
@@ -149,7 +149,7 @@ func InitializeQuorum(logger *zap.Logger) *cobra.Command {
 	cmd.Flags().String(flagAptosConfigPath, ".aptos/config.yaml", "the path to your operator priv and pub key")
 	cmd.Flags().String(flagAccountProfile, "default", "the account profile to use")
 	cmd.Flags().String(flagAptosNetwork, "devnet", "choose network to connect to: mainnet, testnet, devnet, localnet")
-	cmd.Flags().String(flagAvsOperatorConfig, "config/config.json", "see the example at config/example.json")
+	cmd.Flags().String(flagAvsOperatorConfig, "config/operator-config.json", "see the example at config/example.json")
 	return cmd
 }
 
@@ -209,6 +209,6 @@ func Start(logger *zap.Logger) *cobra.Command {
 	cmd.Flags().String(flagAptosConfigPath, ".aptos/config.yaml", "the path to your operator priv and pub key")
 	cmd.Flags().String(flagAccountProfile, "default", "the account profile to use")
 	cmd.Flags().String(flagAptosNetwork, "devnet", "choose network to connect to: mainnet, testnet, devnet, localnet")
-	cmd.Flags().String(flagAvsOperatorConfig, "config/config.json", "see the example at config/example.json")
+	cmd.Flags().String(flagAvsOperatorConfig, "config/operator-config.json", "see the example at config/example.json")
 	return cmd
 }

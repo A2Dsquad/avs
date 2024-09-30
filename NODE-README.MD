@@ -27,20 +27,20 @@ cd avs
 Step 2: Build the Operator binary
 
 ```bash
-go build ./...
+go build -mod=readonly -o ./build/avs ./cmd
 ```
 
 Step 3: Configure the Operator
 
 ```bash
-avs operator config {avs address} {Aggregator rpc}
+./build/avs operator config {avs address} {Aggregator rpc}
 ```
 
 This will create a `config.json` file in `config` folder. You can see the example in `config/example.json`.
 
 Step 4: Start Operator
 ```bash
-avs operator start
+./build/avs operator start
 ```
 
 Your operator is now on and running!
