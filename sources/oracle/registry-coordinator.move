@@ -133,13 +133,14 @@ module oracle::registry_coordinator{
         if (mut_operator_info.operator_status != 1) {
             mut_operator_info.operator_status = 1;
             // TODO: 
-            operator_manager::create_operator_store(operator_address);
+            operator_manager::ensure_operator_store(operator_address);
         };
 
         bls_apk_registry::register_operator(operator, quorum_numbers);
 
         let (operator_stakes, total_stakes) = stake_registry::register_operator(operator_address, operator_id, quorum_numbers);
-        let num_operators_per_quorum = index_registry::register_operator(string::utf8(operator_id), quorum_numbers);
+
+        let num_operators_per_quorum = index_registry::register_operator(operator_id, quorum_numbers);
         return (operator_stakes, total_stakes, num_operators_per_quorum)
     }
 
@@ -173,12 +174,32 @@ module oracle::registry_coordinator{
 
         bls_apk_registry::deregister_operator(operator, quorum_numbers);
         stake_registry::deregister_operator(operator_id, quorum_numbers);
-        index_registry::deregister_operator(string::utf8(operator_id), quorum_numbers);
+        index_registry::deregister_operator(operator_id, quorum_numbers);
     }
 
-    public(friend) fun create_quorum(operator_set_params: OperatorSetParam, minumum_stake: u128, strategy_params: vector<stake_registry::StrategyParams>) acquires RegistryCoordinatorStore, RegistryCoordinatorConfigs {
+
+    // TODO: only owner
+    public entry fun create_quorum(max_operator_count: u32 , minumum_stake: u128, strategies: vector<address>, multipliers: vector<u128>) acquires RegistryCoordinatorConfigs, RegistryCoordinatorStore {
         ensure_registry_coordinator_store();
-        create_quorum_internal(operator_set_params, minumum_stake, strategy_params);
+        let operator_set_param = OperatorSetParam {
+            max_operator_count
+        };
+
+        // let strategy = object::address_to_object<Metadata>(strategy_address);
+        // let strategy_params = vector::singleton<stake_registry::StrategyParams>(stake_registry::strategy_params(strategy, multiplier));
+        
+        let strategies_length = vector::length(&strategies);
+        let multiplier_length = vector::length(&multipliers);
+        
+        assert!(strategies_length == multiplier_length , 105);
+        let strategy_params = vector::empty<stake_registry::StrategyParams>();
+        for (i in 0..strategies_length) {
+            let strategy_address = *vector::borrow(&strategies , i);
+            let strategy = object::address_to_object<Metadata>(strategy_address);
+            let multiplier = *vector::borrow(&multipliers , i);
+            vector::push_back(&mut strategy_params, stake_registry::strategy_params(strategy, multiplier));
+        };
+        create_quorum_internal(operator_set_param, minumum_stake, strategy_params);
     }
 
     fun create_quorum_internal(operator_set_params: OperatorSetParam, minumum_stake: u128, strategy_params: vector<stake_registry::StrategyParams>) acquires RegistryCoordinatorStore {
@@ -187,10 +208,10 @@ module oracle::registry_coordinator{
         let mut_quorum_count = &mut mut_store.quorum_count;
         *mut_quorum_count = *mut_quorum_count + 1;
 
-        set_operator_set_params_internal(pre_quorum_count, operator_set_params);
-        stake_registry::initialize_quorum(pre_quorum_count, minumum_stake, strategy_params);
-        index_registry::initialize_quorum(pre_quorum_count);
-        bls_apk_registry::initialize_quorum(pre_quorum_count);
+        set_operator_set_params_internal(pre_quorum_count + 1, operator_set_params);
+        stake_registry::initialize_quorum(pre_quorum_count + 1, minumum_stake, strategy_params);
+        index_registry::initialize_quorum(pre_quorum_count + 1);
+        bls_apk_registry::initialize_quorum(pre_quorum_count + 1);
     }
 
     public fun set_operator_set_params(quorum_number: u8, operator_set_params: OperatorSetParam) acquires RegistryCoordinatorStore {

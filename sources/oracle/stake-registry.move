@@ -24,7 +24,9 @@ module oracle::stake_registry{
     use std::vector;
     use std::signer;
 
-    const WEIGHTING_DIVISOR: u128 = 1_000_000_000_000_000_000; // 1e18
+    friend oracle::registry_coordinator;
+
+    const WEIGHTING_DIVISOR: u128 = 1_000_000_000; // 1e9
 
     const MAX_WEIGHING_FUNCTION_LENGTH : u32 = 32;
 
@@ -105,7 +107,7 @@ module oracle::stake_registry{
     }
 
     // TODO: only registry cordinator can call
-    public fun register_operator(operator: address, operatorId: vector<u8>, quorum_numbers: vector<u8>): (vector<u128>, vector<u128>) acquires StakeRegistryStore{
+    public fun register_operator(operator: address, operator_id: vector<u8>, quorum_numbers: vector<u8>): (vector<u128>, vector<u128>) acquires StakeRegistryStore{
         let current_stakes = vector::empty<u128>();
         let total_stakes = vector::empty<u128>();
 
@@ -118,7 +120,7 @@ module oracle::stake_registry{
 
             assert!(has_minimum_stake, EMINUMUM_STAKE_REQUIRED);
 
-            let (stake_delta, decrease) = record_operator_stake_update(operatorId, *quorum_number, current_stake);
+            let (stake_delta, decrease) = record_operator_stake_update(operator_id, *quorum_number, current_stake);
 
             vector::push_back(&mut current_stakes, current_stake);
             let new_stake = record_total_stake_update(*quorum_number, stake_delta, decrease);
@@ -129,19 +131,19 @@ module oracle::stake_registry{
     }
 
     // TODO: only registry cordinator can call
-    public fun deregister_operator(operatorId: vector<u8>, quorum_numbers: vector<u8>) acquires StakeRegistryStore {
+    public fun deregister_operator(operator_id: vector<u8>, quorum_numbers: vector<u8>) acquires StakeRegistryStore {
         let quorum_numbers_length = vector::length(&quorum_numbers);
         for (i in 0..quorum_numbers_length) {
             let quorum_number = vector::borrow(&quorum_numbers, i);
             quorum_exists(*quorum_number);
 
-            let (stake_delta, decrease) = record_operator_stake_update(operatorId, *quorum_number, 0);
+            let (stake_delta, decrease) = record_operator_stake_update(operator_id, *quorum_number, 0);
 
             record_total_stake_update(*quorum_number, stake_delta, decrease);
         }
     }
 
-    public fun update_operator_stake(operator: address, operatorId: vector<u8>, quorum_numbers: vector<u8>) acquires StakeRegistryStore {
+    public fun update_operator_stake(operator: address, operator_id: vector<u8>, quorum_numbers: vector<u8>) acquires StakeRegistryStore {
         let quorums_to_remove: u256;
         let quorum_numbers_length = vector::length(&quorum_numbers);
         for (i in 0..quorum_numbers_length) {
@@ -156,7 +158,7 @@ module oracle::stake_registry{
                 quorums_to_remove =1;
             };
 
-            let (stake_delta, decrease) = record_operator_stake_update(operatorId, *quorum_number, current_stake);
+            let (stake_delta, decrease) = record_operator_stake_update(operator_id, *quorum_number, current_stake);
             record_total_stake_update(*quorum_number, stake_delta, decrease);
         }
     }
@@ -198,11 +200,13 @@ module oracle::stake_registry{
     }
 
     fun weight_of_operator_for_quorum(quorum_number: u8, operator: address): (u128, bool) acquires StakeRegistryStore{
+        let strategy_params_length = strategy_params_length(quorum_number);
         let store = stake_registry_store();
         let weight: u128 = 0;
         
         let shares = vector::empty<u128>();
-        for (i in 0..100) {
+        
+        for (i in 0..strategy_params_length) {
             let strategy_params = vector::borrow(smart_table::borrow(&store.strategy_params, quorum_number), i);
             let token = strategy_params.strategy;
             vector::push_back(&mut shares, staker_manager::staker_token_shares(operator, token));
@@ -210,28 +214,30 @@ module oracle::stake_registry{
 
             if (share > 0 ) {
                 weight = weight + share*strategy_params.multiplier/WEIGHTING_DIVISOR;
-            }
+            };
         };
 
-        let has_minimum_stake =  weight > *smart_table::borrow(&store.minimum_stake_for_quorum, quorum_number);
+        let minimum_stake = *smart_table::borrow_with_default(&store.minimum_stake_for_quorum, quorum_number, &1);
+        let has_minimum_stake: bool = (weight > minimum_stake);
         return (weight, has_minimum_stake)
     }
 
-    fun record_operator_stake_update(operatorId: vector<u8>, quorum_number: u8, new_stake: u128 ): (u128, bool) acquires StakeRegistryStore{
-        let history_length = operator_history_length(operatorId, quorum_number);
+    fun record_operator_stake_update(operator_id: vector<u8>, quorum_number: u8, new_stake: u128 ): (u128, bool) acquires StakeRegistryStore{
+        let history_length = operator_history_length(operator_id, quorum_number);
         let mut_store = mut_stake_registry_store();
         let prev_stake: u128 = 0;
         
-
         if (history_length == 0) {
-            let history = smart_table::borrow_mut(smart_table::borrow_mut(&mut mut_store.operator_stake_history, operatorId), quorum_number);
-            vector::push_back(history, StakeUpdate{
+            smart_table::add(&mut mut_store.operator_stake_history, operator_id, smart_table::new());
+            let operator_stake_history = smart_table::borrow_mut(&mut mut_store.operator_stake_history, operator_id);
+            smart_table::add(operator_stake_history, quorum_number, vector::singleton(
+                StakeUpdate{
                 update_timestamp: timestamp::now_seconds(),
                 next_update_timestamp: 0,
                 stake: new_stake,
-            });
+            }));
         } else {
-            let last_update = vector::borrow_mut(smart_table::borrow_mut(smart_table::borrow_mut(&mut mut_store.operator_stake_history, operatorId), quorum_number), history_length-1);
+            let last_update = vector::borrow_mut(smart_table::borrow_mut(smart_table::borrow_mut(&mut mut_store.operator_stake_history, operator_id), quorum_number), history_length-1);
             prev_stake = last_update.stake;
 
             if (prev_stake == new_stake) {
@@ -242,7 +248,7 @@ module oracle::stake_registry{
                 last_update.stake = new_stake;
             } else {
                 last_update.next_update_timestamp = timestamp::now_seconds();
-                let history = smart_table::borrow_mut(smart_table::borrow_mut(&mut mut_store.operator_stake_history, operatorId), quorum_number);
+                let history = smart_table::borrow_mut(smart_table::borrow_mut(&mut mut_store.operator_stake_history, operator_id), quorum_number);
                 vector::push_back(history, StakeUpdate{
                     update_timestamp: timestamp::now_seconds(),
                     next_update_timestamp: 0,
@@ -354,10 +360,14 @@ module oracle::stake_registry{
         history_length
     }
 
-    inline fun operator_history_length(operatorId: vector<u8>, quorum_number: u8): u64 {
+    inline fun operator_history_length(operator_id: vector<u8>, quorum_number: u8): u64 {
         let store = stake_registry_store();
-        let history_length = vector::length(smart_table::borrow(smart_table::borrow(&store.operator_stake_history, operatorId), quorum_number));
-        history_length
+        if (!smart_table::contains(&store.operator_stake_history, operator_id)) {
+            0
+        } else {
+            let history_length = vector::length(smart_table::borrow_with_default(smart_table::borrow(&store.operator_stake_history, operator_id), quorum_number, &vector::empty<StakeUpdate>()));
+            history_length
+        }
     }
 
     #[view]
@@ -380,6 +390,13 @@ module oracle::stake_registry{
         let strategy = smart_table::borrow(&store.strategy_params, quorum_number);
         let strategyParams = vector::borrow(strategy, index);
         strategyParams.strategy
+    }
+
+    public(friend) fun strategy_params(strategy: Object<Metadata>, multiplier: u128): StrategyParams {
+        return StrategyParams {
+            strategy, 
+            multiplier,
+        }
     }
     
     inline fun stake_registry_store(): &StakeRegistryStore acquires StakeRegistryStore {

@@ -6,13 +6,13 @@ authors = []
 [addresses]
 aptos_framework = "0x1"
 restaking = "0x8148d3baca46128d7b383134e4e6c8400384fd3f500bc630cb0bed38de138e39"
-deployer1 = "0x603053371d0eec6befaf41489f506b7b3e8e31dbca3d9b9c5cb92bb308dc2eec"
-oracle = "0x6d2c0305b85f1cd0d7d06b751a7be6a99c1d71975e65613a8b91a8d6b69f5bb7"
+deployer1 = "0xc2ada184d31ee09bac3b04abb3d1b87c169301a1ad982955bdc65774a723920b"
+oracle = "0x4445dd25bbca3b3787e2191478b237472ae1c27b6a66ef07294433da33c53bb8"
 
 [dev-addresses]
 deployer1 = "0x46e6cc3a13792af7f4287c474072d78a84d85fd5597416fc573c81fbcdb216b1"
 restaking = "0xc3bb8488ab1a5815a9d543d7e41b0e0df46a7396f89b22821f07a4362f75ddc5"
-oracle = "0x6d2c0305b85f1cd0d7d06b751a7be6a99c1d71975e65613a8b91a8d6b69f5bb7"
+oracle = "0x4445dd25bbca3b3787e2191478b237472ae1c27b6a66ef07294433da33c53bb8"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"

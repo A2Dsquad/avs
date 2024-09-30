@@ -158,7 +158,6 @@ module oracle::bls_apk_registry{
         while (i < vector::length(&quorum_numbers)) {
             let quorum_number = *vector::borrow(&quorum_numbers, i);
             let apk_history_length = vector::length(smart_table::borrow_with_default(&bls_apk_registry_store().apk_history, quorum_number, &vector::empty()));
-            
             assert!(apk_history_length > 0, EQUORUM_DOES_NOT_EXIST);
 
             // Update pubkey

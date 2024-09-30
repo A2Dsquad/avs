@@ -17,3 +17,6 @@ aptos move create-resource-account-and-publish-package --seed $seed --address-na
 aptos move run-script --compiled-script-path ./build/oracle/bytecode_scripts/initialize_avs_modules.mv  --assume-yes 
 
 echo "Deployed to $resource_account"
+
+go run ./cmd/main.go operator config $resource_account 123   
+go run ./cmd/main.go operator initialize-quorum 1 "1"

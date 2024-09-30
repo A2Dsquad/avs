@@ -5,6 +5,7 @@ module oracle::index_registry{
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::smart_vector::{Self, SmartVector};
+    use aptos_std::comparator::{compare_u8_vector, is_equal};
     
     use std::string::{Self, String};
     use std::bcs;
@@ -26,7 +27,7 @@ module oracle::index_registry{
     const EQUORUM_ALREADY_EXIST: u64 = 1002;
 
     struct OperatorUpdate has copy, store, drop {
-        operator_id: String, 
+        operator_id: vector<u8>, 
         timestamp: u64
     }
 
@@ -36,7 +37,7 @@ module oracle::index_registry{
     }
     // TODO: create store
     struct IndexRegistryStore has key {
-        operator_index: SmartTable<u8, SmartTable<String, u32>>,
+        operator_index: SmartTable<u8, SmartTable<vector<u8>, u32>>,
         update_history: SmartTable<u8, SmartTable<u32, vector<OperatorUpdate>>>,
         count_history: SmartTable<u8, vector<QuorumUpdate>>
     }
@@ -47,7 +48,7 @@ module oracle::index_registry{
 
     #[event]
     struct QuorumIndexUpdate has drop, store {
-        operator_id: String,
+        operator_id: vector<u8>,
         quorum_number: u8,
         operator_index: u32
     }
@@ -92,7 +93,7 @@ module oracle::index_registry{
         })
     }
 
-    public(friend) fun register_operator(operator_id: String, quorum: vector<u8>): vector<u32> acquires IndexRegistryStore{
+    public(friend) fun register_operator(operator_id: vector<u8>, quorum: vector<u8>): vector<u32> acquires IndexRegistryStore{
         let operators_per_quorum: vector<u32> = vector::empty();
 
         vector::for_each(quorum, |quorum_number| {
@@ -106,7 +107,7 @@ module oracle::index_registry{
         return operators_per_quorum
     }
 
-    public(friend) fun deregister_operator(operator_id: String, quorum: vector<u8>) acquires IndexRegistryStore{
+    public(friend) fun deregister_operator(operator_id: vector<u8>, quorum: vector<u8>) acquires IndexRegistryStore{
         vector::for_each(quorum, |quorum_number| {
             assert!(smart_table::contains(&index_registry_store().count_history, quorum_number), EQUORUM_NOT_EXIST);
             let count_history = smart_table::borrow(&index_registry_store().count_history, quorum_number);
@@ -114,7 +115,7 @@ module oracle::index_registry{
             let index_to_remove = get_operator_index(quorum_number, operator_id);
             let new_operator_count = decrease_operator_count(quorum_number);
             let last_operator_id = pop_last_operator(quorum_number, new_operator_count);
-            if (operator_id != last_operator_id) {
+            if (!is_equal(&compare_u8_vector(operator_id, last_operator_id))) {
                 assign_operator_to_index(last_operator_id, quorum_number, index_to_remove);
             }
         });
@@ -135,7 +136,7 @@ module oracle::index_registry{
         smart_table::add(&mut store.update_history, quorum_number, smart_table::new());
     }
 
-    fun assign_operator_to_index(operator_id: String, quorum_number: u8, index: u32) acquires IndexRegistryStore {
+    fun assign_operator_to_index(operator_id: vector<u8>, quorum_number: u8, index: u32) acquires IndexRegistryStore {
         update_operator_history(quorum_number, index, operator_id);
         set_operator_index(quorum_number, operator_id, index);
 
@@ -146,10 +147,10 @@ module oracle::index_registry{
         });
     }
 
-    fun pop_last_operator(quorum_number: u8, index: u32): String acquires IndexRegistryStore {
+    fun pop_last_operator(quorum_number: u8, index: u32): vector<u8> acquires IndexRegistryStore {
         let latest_update = latest_operator_update_mut(quorum_number, index);
         let remove_operator_id = latest_update.operator_id;
-        update_operator_history(quorum_number, index, string::utf8(NOT_EXIST_ID));
+        update_operator_history(quorum_number, index, NOT_EXIST_ID);
 
         return remove_operator_id
     }
@@ -169,7 +170,7 @@ module oracle::index_registry{
         return new_operator_count
     }
 
-    fun update_operator_history(quorum_number: u8, operator_count: u32, new_operator_id: String) acquires IndexRegistryStore {
+    fun update_operator_history(quorum_number: u8, operator_count: u32, new_operator_id: vector<u8>) acquires IndexRegistryStore {
         let empty = operator_update_empty(quorum_number, operator_count);
         let now = timestamp::now_seconds();
         
@@ -252,13 +253,13 @@ module oracle::index_registry{
         operator_history
     }
 
-    inline fun set_operator_index(quorum_number: u8, operator_id: String, index: u32) acquires IndexRegistryStore {
+    inline fun set_operator_index(quorum_number: u8, operator_id: vector<u8>, index: u32) acquires IndexRegistryStore {
         let store = index_registry_store_mut();
         let operator_index = smart_table::borrow_mut(&mut store.operator_index, quorum_number);
         smart_table::upsert(operator_index, operator_id, index);
     }  
 
-    inline fun get_operator_index(quorum_number: u8, operator_id: String): u32 acquires IndexRegistryStore {
+    inline fun get_operator_index(quorum_number: u8, operator_id: vector<u8>): u32 acquires IndexRegistryStore {
         let operator_index = smart_table::borrow(&index_registry_store().operator_index, quorum_number);
         let index = *smart_table::borrow(operator_index, operator_id);
         index
