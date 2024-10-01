@@ -169,18 +169,24 @@ module oracle::bls_apk_registry{
             };
 
             let borrow_new_apk = *current_apk;
-            let new_aggr_pubkeys =  aggregate_pubkeys(borrow_new_apk);
+            let new_aggr_pubkeys : AggrPublicKeysWithPoP;
+            let option_aggr_pubkeys = option::none();
+            if (!vector::is_empty(&borrow_new_apk)) {
+                new_aggr_pubkeys = aggregate_pubkeys(borrow_new_apk);
+                option_aggr_pubkeys = option::some(new_aggr_pubkeys);
+            };
+            
             
             let latest_update = latest_apk_update_mut(quorum_number);
             let now = timestamp::now_seconds();
             if (latest_update.update_timestamp == now) {
-                latest_update.aggregate_pubkeys = option::some(new_aggr_pubkeys);
+                latest_update.aggregate_pubkeys = option_aggr_pubkeys;
             } else {
                 latest_update.next_update_timestamp = now;
                 let store_mut = bls_apk_registry_store_mut();
                 let apk_history_mut = smart_table::borrow_mut(&mut store_mut.apk_history, quorum_number);
                 vector::push_back(apk_history_mut, ApkUpdate{
-                    aggregate_pubkeys: option::some(new_aggr_pubkeys),
+                    aggregate_pubkeys: option_aggr_pubkeys,
                     update_timestamp: now,
                     next_update_timestamp: 0
                 })
@@ -194,6 +200,13 @@ module oracle::bls_apk_registry{
         let store = bls_apk_registry_store();
         let operator_id = smart_table::borrow_with_default(&store.operator_to_pk_hash, operator, &vector::empty<u8>());
         return *operator_id
+    }
+
+    #[view]
+    public fun get_operator_pk(operator: address): PublicKeyWithPoP acquires BLSApkRegistryStore{
+        let store = bls_apk_registry_store();
+        let pubkey = smart_table::borrow(&store.operator_to_pk, operator);
+        return *pubkey
     }
 
     #[view]

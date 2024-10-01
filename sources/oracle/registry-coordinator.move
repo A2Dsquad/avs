@@ -146,9 +146,9 @@ module oracle::registry_coordinator{
         return (operator_stakes, total_stakes, num_operators_per_quorum)
     }
 
-    public fun deregister_operator(aggregator: &signer, operator: address, quorum_numbers: vector<u8>) acquires RegistryCoordinatorStore{
-        // TODO: assert only aggregator can call
-        deregister_operator_internal(operator, quorum_numbers);
+    public entry fun deregister_operator(operator: &signer, quorum_numbers: vector<u8>) acquires RegistryCoordinatorStore{
+        let operator_address = signer::address_of(operator);
+        deregister_operator_internal(operator_address, quorum_numbers);
     }
 
     fun deregister_operator_internal(operator: address, quorum_numbers: vector<u8>) acquires RegistryCoordinatorStore {
@@ -212,7 +212,7 @@ module oracle::registry_coordinator{
 
                 if (quorum_to_remove != 0) {
 
-                    deregister_operator(aggregator, operator_address, bitmap_to_vecu8(quorum_to_remove));
+                    deregister_operator_internal(operator_address, bitmap_to_vecu8(quorum_to_remove));
                 }
             }
         }
@@ -290,7 +290,7 @@ module oracle::registry_coordinator{
         while (true) {
             bitmask = 1u256 << i;
             if ((bitmap & bitmask) != 0) {
-                vector::push_back(&mut vecu8, i as u8);
+                vector::push_back(&mut vecu8, (i as u8));
                 index = index + 1;
             };
             if (i == 255) {

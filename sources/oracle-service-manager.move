@@ -250,7 +250,7 @@ module oracle::service_manager{
         // Extract each byte from the u64 value
         let shift = 56; // Start with the highest byte
         while (shift >= 0) {
-            let byte = ((value >> shift) & 0xFF) as u8;
+            let byte = (((value >> shift) & 0xFF) as u8);
             vector::push_back(&mut result, byte);
             if (shift == 0) {
                 break
