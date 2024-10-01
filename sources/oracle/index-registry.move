@@ -216,6 +216,11 @@ module oracle::index_registry{
         *smart_table::borrow(&index_registry_store().count_history, quorum_number)
     }
 
+    #[view]
+    public fun quorum_operator_count(quorum_number: u8): u32  acquires IndexRegistryStore {
+        latest_quorum_update(quorum_number).operator_count
+    }
+
     inline fun operator_update_empty(quorum_number: u8, operator_count: u32): bool acquires IndexRegistryStore {
         let store = index_registry_store();
         let operator_history_table = smart_table::borrow(&store.update_history, quorum_number);
@@ -239,6 +244,13 @@ module oracle::index_registry{
         latest_update
     }
 
+    inline fun latest_quorum_update(quorum_number: u8): &QuorumUpdate acquires IndexRegistryStore{
+        let store = index_registry_store();
+        let count_history_length = vector::length(smart_table::borrow(&store.count_history, quorum_number));
+        let count_history = smart_table::borrow(&store.count_history, quorum_number);
+        let latest_update = vector::borrow(count_history, count_history_length - 1);
+        latest_update
+    }
     inline fun operator_history_mut(quorum_number: u8, operator_count: u32): &mut vector<OperatorUpdate> acquires IndexRegistryStore {
         let store_mut = index_registry_store_mut();
         // let update_history = smart_table::borrow_mut(&mut store_mut.update_history, quorum_number);

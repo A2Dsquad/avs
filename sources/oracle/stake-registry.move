@@ -143,8 +143,8 @@ module oracle::stake_registry{
         }
     }
 
-    public fun update_operator_stake(operator: address, operator_id: vector<u8>, quorum_numbers: vector<u8>) acquires StakeRegistryStore {
-        let quorums_to_remove: u256;
+    public fun update_operator_stake(operator: address, operator_id: vector<u8>, quorum_numbers: vector<u8>): u256 acquires StakeRegistryStore {
+        let quorums_to_remove: u256 = 0;
         let quorum_numbers_length = vector::length(&quorum_numbers);
         for (i in 0..quorum_numbers_length) {
             let quorum_number = vector::borrow(&quorum_numbers, i);
@@ -154,13 +154,13 @@ module oracle::stake_registry{
 
             if (!has_minimum_stake) {
                 current_stake = 0;
-                // TODO: how to set quorums to remove
-                quorums_to_remove =1;
+                quorums_to_remove = quorums_to_remove | (1 << *quorum_number);
             };
 
             let (stake_delta, decrease) = record_operator_stake_update(operator_id, *quorum_number, current_stake);
             record_total_stake_update(*quorum_number, stake_delta, decrease);
-        }
+        };
+        quorums_to_remove
     }
 
 

@@ -35,6 +35,7 @@ module oracle::service_manager{
     const ETASK_HAS_NO_BALANCE: u64 = 1303;
     const EINSUFFICIENT_FUNDS: u64 = 1304;
     const ETHRESHOLD_NOT_MEET: u64 = 1305;
+    const EINVALID_TASK_ID: u64 = 1306;
 
     struct TaskState has store, drop, copy {
         task_created_timestamp: u64,
@@ -45,6 +46,7 @@ module oracle::service_manager{
 
     struct ServiceManagerStore has key {
         tasks_state: SmartTable<vector<u8>, TaskState>,
+        task_count: u64,
     }
 
     struct FeePool has key {
@@ -91,18 +93,19 @@ module oracle::service_manager{
         creator: &signer,
         token: Object<Metadata>,
         amount: u64,
-        task_id: vector<u8>,
         data_request: String,
         respond_fee_limit: u64
     ) acquires ServiceManagerConfigs, ServiceManagerStore, TaskCreatorBalanceStore {
+        ensure_service_manager_store();
         let creator_address = signer::address_of(creator);
-       
+        let store = service_manager_store();
+        let task_id = store.task_count + 1;
         let hash_data = vector<u8>[];
-        vector::append(&mut hash_data, task_id);
+        vector::append(&mut hash_data, u64_to_vector_u8(task_id));
         vector::append(&mut hash_data, task_creator_store_seeds(creator_address));
 
         let task_identifier = aptos_hash::keccak256(hash_data);
-        assert!(!smart_table::contains(&service_manager_store().tasks_state, task_identifier), ETASK_ALREADY_SUBMITTED);
+        assert!(!smart_table::contains(&store.tasks_state, task_identifier), ETASK_ALREADY_SUBMITTED);
 
         if (amount > 0) {
             let store = primary_fungible_store::ensure_primary_store_exists(creator_address, token);
@@ -125,13 +128,13 @@ module oracle::service_manager{
             });
         };
 
-        let store = task_creator_balance_store(creator_address);
-        let current_balance = smart_table::borrow_with_default(&store.balances, token, &0);
+        let current_balance = smart_table::borrow_with_default(&task_creator_balance_store(creator_address).balances, token, &0);
 
         assert!(*current_balance >= respond_fee_limit, EINSUFFICIENT_FUNDS);
 
         let now = timestamp::now_seconds();
         let store_mut = service_manager_store_mut();
+        store_mut.task_count = task_id;
         smart_table::upsert(&mut store_mut.tasks_state, task_identifier, TaskState{
             task_created_timestamp: now,
             responded: false,
@@ -150,7 +153,7 @@ module oracle::service_manager{
 
     public entry fun respond_to_task(
         aggregator: &signer,
-        task_id: vector<u8>,
+        task_id: u64,
         sender: address,
         nonsigner_pubkeys: vector<vector<u8>>,
         quorum_aggr_pks: vector<vector<u8>>,
@@ -160,8 +163,10 @@ module oracle::service_manager{
         aggr_pks: vector<vector<u8>>,
         aggr_sig: vector<vector<u8>>
     ) acquires ServiceManagerStore {
+        let task_count = service_manager_store().task_count;
+        assert!(task_id <= task_count, EINVALID_TASK_ID);
         let hash_data = vector<u8>[];
-        vector::append(&mut hash_data, task_id);
+        vector::append(&mut hash_data, u64_to_vector_u8(task_id));
         vector::append(&mut hash_data, task_creator_store_seeds(sender));
         let task_identifier = aptos_hash::keccak256(hash_data);
 
@@ -204,10 +209,16 @@ module oracle::service_manager{
         oracle_manager::get_address(string::utf8(SERVICE_MANAGER_NAME))
     }
 
+    #[view]
+    public fun task_count(): u64  acquires ServiceManagerStore{
+        service_manager_store().task_count
+    }
+
     public fun create_service_manager_store() acquires ServiceManagerConfigs{
         let service_manager_signer = service_manager_signer();
         move_to(service_manager_signer, ServiceManagerStore{
-            tasks_state: smart_table::new()
+            tasks_state: smart_table::new(),
+            task_count: 0
         })
     }
 
@@ -228,9 +239,25 @@ module oracle::service_manager{
         let ctor = &object::create_named_object(service_manager_signer, task_creator_store_seeds(creator_address));
         let task_creator_balance_store_signer = object::generate_signer(ctor);
     
-        move_to(&task_creator_balance_store_signer, ServiceManagerStore{
-            tasks_state: smart_table::new()
+        move_to(&task_creator_balance_store_signer, TaskCreatorBalanceStore{
+            balances: smart_table::new(),
         })
+    }
+
+    inline fun u64_to_vector_u8(value: u64): vector<u8> {
+        let result = vector::empty<u8>();
+        
+        // Extract each byte from the u64 value
+        let shift = 56; // Start with the highest byte
+        while (shift >= 0) {
+            let byte = ((value >> shift) & 0xFF) as u8;
+            vector::push_back(&mut result, byte);
+            if (shift == 0) {
+                break
+            };
+            shift = shift - 8;
+        };
+        result
     }
 
     inline fun service_manager_store(): &ServiceManagerStore  acquires ServiceManagerStore {

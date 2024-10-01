@@ -119,10 +119,9 @@ module oracle::bls_apk_registry{
         update_quorum_apk(quorum_numbers, *pubkey, true)
     }
 
-    public(friend) fun deregister_operator(operator: &signer, quorum_numbers: vector<u8>) acquires BLSApkRegistryStore {
-        let operator_address = signer::address_of(operator);
+    public(friend) fun deregister_operator(operator: address, quorum_numbers: vector<u8>) acquires BLSApkRegistryStore {
         let store = bls_apk_registry_store();
-        let pubkey = smart_table::borrow(&store.operator_to_pk, operator_address);
+        let pubkey = smart_table::borrow(&store.operator_to_pk, operator);
 
         update_quorum_apk(quorum_numbers, *pubkey, false)
     }

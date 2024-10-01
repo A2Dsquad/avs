@@ -133,7 +133,9 @@ module oracle::registry_coordinator{
         if (mut_operator_info.operator_status != 1) {
             mut_operator_info.operator_status = 1;
             // TODO: 
-            operator_manager::ensure_operator_store(operator_address);
+            if(!operator_manager::operator_store_exists(operator_address)){
+                operator_manager::create_operator_store(operator_address);
+            };
         };
 
         bls_apk_registry::register_operator(operator, quorum_numbers);
@@ -144,14 +146,14 @@ module oracle::registry_coordinator{
         return (operator_stakes, total_stakes, num_operators_per_quorum)
     }
 
-    public fun deregister_operator(operator: &signer, quorum_numbers: vector<u8>) acquires RegistryCoordinatorStore{
+    public fun deregister_operator(aggregator: &signer, operator: address, quorum_numbers: vector<u8>) acquires RegistryCoordinatorStore{
+        // TODO: assert only aggregator can call
         deregister_operator_internal(operator, quorum_numbers);
     }
 
-    fun deregister_operator_internal(operator: &signer, quorum_numbers: vector<u8>) acquires RegistryCoordinatorStore {
-        let operator_address = signer::address_of(operator);
+    fun deregister_operator_internal(operator: address, quorum_numbers: vector<u8>) acquires RegistryCoordinatorStore {
         let store = registry_coordinator_store();
-        let operator_info = smart_table::borrow(&store.operator_infos, operator_address);
+        let operator_info = smart_table::borrow(&store.operator_infos, operator);
         let operator_id = operator_info.operator_id;
         assert!(operator_info.operator_status == 1, 202);
 
@@ -165,7 +167,7 @@ module oracle::registry_coordinator{
 
 
         let mut_store = mut_registry_coordinator_store();
-        let mut_operator_info = smart_table::borrow_mut(&mut mut_store.operator_infos, operator_address);
+        let mut_operator_info = smart_table::borrow_mut(&mut mut_store.operator_infos, operator);
         if (new_bitmap == 0) {
             mut_operator_info.operator_status = 2;
             // TODO: serviceManager.deregisterOperatorFromAVS(operator);
@@ -181,8 +183,39 @@ module oracle::registry_coordinator{
         aggregator: &signer,
         quorum_numbers: vector<u8>,
         opertors_per_quorum: vector<vector<address>>,
-    ) {
-        // TODO
+    ) acquires RegistryCoordinatorStore {
+        assert!(vector::length(&quorum_numbers) == vector::length(&opertors_per_quorum), 105);
+
+        for (i in 0..vector::length(&quorum_numbers)) {
+            let quorum_number = *vector::borrow(&quorum_numbers, i);
+            let current_quorum_operators = *vector::borrow(&opertors_per_quorum, i);
+            let quorum_operator_count = index_registry::quorum_operator_count(quorum_number);
+            assert!(vector::length(&current_quorum_operators) == (quorum_operator_count as u64), 106);
+            for (j in 0..vector::length(&current_quorum_operators)) {
+                let operator_address = *vector::borrow(&current_quorum_operators, j);
+                let store = registry_coordinator_store();
+        
+                let operator_info = smart_table::borrow(&store.operator_infos, operator_address);
+                let operator_id = operator_info.operator_id;
+                let current_bitmap: u256 = 0;
+                let operator_bitmap_history_length = vector::length(smart_table::borrow_with_default(&store.operator_bitmap_history, operator_id, &vector::empty()));
+                if (operator_bitmap_history_length != 0) {
+                    current_bitmap = vector::borrow(smart_table::borrow(&store.operator_bitmap_history, operator_id), operator_bitmap_history_length-1).quorum_bitmap
+                };
+                assert!(1 == (current_bitmap >> quorum_number) & 1, 107);
+
+                if (operator_info.operator_status != 1) {
+                    continue
+                };
+
+                let quorum_to_remove: u256 = stake_registry::update_operator_stake(operator_address, operator_id, vector::singleton(quorum_number));
+
+                if (quorum_to_remove != 0) {
+
+                    deregister_operator(aggregator, operator_address, bitmap_to_vecu8(quorum_to_remove));
+                }
+            }
+        }
     }
 
 
@@ -247,6 +280,25 @@ module oracle::registry_coordinator{
             bitmap = (bitmap | bitmask);
         };
         return bitmap
+    }
+
+    fun bitmap_to_vecu8(bitmap: u256): vector<u8> {
+        let vecu8: vector<u8> = vector::empty();
+        let index = 0;
+        let bitmask: u256;
+        let  i = 0;
+        while (true) {
+            bitmask = 1u256 << i;
+            if ((bitmap & bitmask) != 0) {
+                vector::push_back(&mut vecu8, i as u8);
+                index = index + 1;
+            };
+            if (i == 255) {
+                break
+            };
+            i = i + 1;
+        };
+        vecu8
     }
 
     // TODO: remove public
