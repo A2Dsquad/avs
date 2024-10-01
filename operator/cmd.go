@@ -154,7 +154,19 @@ func InitializeQuorum(logger *zap.Logger) *cobra.Command {
 }
 
 func Deregister(logger *zap.Logger) *cobra.Command {
-	return nil
+	cmd := &cobra.Command{
+		Use:   "deregister",
+		Short: "deregister",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+	}
+	cmd.Flags().String(flagAptosConfigPath, ".aptos/config.yaml", "the path to your operator priv and pub key")
+	cmd.Flags().String(flagAccountProfile, "default", "the account profile to use")
+	cmd.Flags().String(flagAptosNetwork, "devnet", "choose network to connect to: mainnet, testnet, devnet, localnet")
+	cmd.Flags().String(flagAvsOperatorConfig, "config/operator-config.json", "see the example at config/example.json")
+	return cmd
 }
 
 func Start(logger *zap.Logger) *cobra.Command {
