@@ -153,7 +153,7 @@ module oracle::service_manager{
             respond_fee_limit
         })
     }
-    // TODO: update to work with check signature
+
     public entry fun respond_to_task(
         aggregator: &signer,
         task_id: u64,
@@ -209,8 +209,6 @@ module oracle::service_manager{
         let signed_stake = *vector::borrow(&signed_stake_for_quorum, 0);
         let total_stake = *vector::borrow(&total_stake_for_quorum, 0);
         assert!((signed_stake * THRESHOLD_DENOMINATOR) >= (total_stake * QUORUM_THRESHOLD_PERCENTAGE), ETHRESHOLD_NOT_MEET);
-    
-        // TODO: distribute fee
     }
 
     #[view]
