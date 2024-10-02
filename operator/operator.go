@@ -2,10 +2,12 @@ package operator
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
+	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"go.uber.org/zap"
 )
 
@@ -44,6 +46,25 @@ func (op *Operator) Start(ctx context.Context) error {
 }
 
 func (op *Operator) FetchTasks(ctx context.Context) error {
+	_, err := aptos.NewClient(op.network)
+	if err != nil {
+		return fmt.Errorf("failed to create aptos client: %v", err)
+	}
+
+	// // looping
+	// for {
+	// 	// TODO: make a temp variable to track for which latest version to search for events
+	// 	event, err := listenForEvent(client, op.avsAddress)
+	// 	if err != nil {
+	// 		op.logger.Warn("Failed to subscribe to new tasks", zap.Any("err", err))
+	// 		time.Sleep(RetryInterval)
+	// 		continue
+	// 	}
+	// 	// TODO: handle task queue full
+	// 	agg.TaskQueue <- event // Send event to the task queue
+	// 	agg.logger.Info("Queued new task for processing", zap.Any("event", event))
+	// 	return nil
+	// }
 	// TODO
 	return nil
 }
@@ -51,4 +72,4 @@ func (op *Operator) FetchTasks(ctx context.Context) error {
 func (op *Operator) RespondTask(ctx context.Context) error {
 	// TODO
 	return nil
-} 
+}

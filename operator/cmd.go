@@ -158,8 +158,50 @@ func Deregister(logger *zap.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deregister",
 		Short: "deregister",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			aptosPath, err := cmd.Flags().GetString(flagAptosConfigPath)
+			if err != nil {
+				return errors.Wrap(err, flagAptosConfigPath)
+			}
+			accountProfile, err := cmd.Flags().GetString(flagAccountProfile)
+			if err != nil {
+				return errors.Wrap(err, flagAccountProfile)
+			}
+			network, err := cmd.Flags().GetString(flagAptosNetwork)
+			if err != nil {
+				return errors.Wrap(err, flagAptosNetwork)
+			}
+			operatorConfigPath, err := cmd.Flags().GetString(flagAvsOperatorConfig)
+			if err != nil {
+				return errors.Wrap(err, flagAvsOperatorConfig)
+			}
+
+			networkConfig, err := extractNetwork(network)
+			if err != nil {
+				return fmt.Errorf("wrong config: %s", err)
+			}
+			operatorConfig, err := loadOperatorConfig(operatorConfigPath)
+			if err != nil {
+				return fmt.Errorf("can not load operator config: %s", err)
+			}
+
+			quorum64, err := strconv.ParseUint(args[0], 10, 64) // base 10 and 64-bit size
+			if err != nil {
+				return fmt.Errorf("error parsing quorum: %s", err)
+			}
+
+			quorum := uint8(quorum64)
+
+			operatorAccount, err := SignerFromConfig(aptosPath, accountProfile)
+			if err != nil {
+				panic("Failed to create operator account:" + err.Error())
+			}
+			err = DeregisterFromQuorum(logger, networkConfig, *operatorConfig, operatorAccount, quorum)
+			if err != nil {
+				panic("Failed to create deregistor operator :" + err.Error())
+			}
+
 			return nil
 		},
 	}

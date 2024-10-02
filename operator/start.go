@@ -99,6 +99,8 @@ func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config O
 		account:    operatorAccount,
 		operatorId: operatorId,
 		avsAddress: avsAddress,
+		network:    networkConfig,
+		TaskQueue:  make(chan AVSTask, 1),
 	}
 	return &operator, nil
 }

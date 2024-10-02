@@ -20,12 +20,22 @@ type Operator struct {
 	// TODO: change this to aptos-sdk fork
 	operatorId []byte
 	avsAddress aptos.AccountAddress
+	network    aptos.NetworkConfig
+	TaskQueue  chan AVSTask
 }
 type OperatorConfig struct {
 	BlsPrivateKey        []byte
 	AvsAddress           string
 	AggregatorIpPortAddr string
 	// OperatorId           eigentypes.OperatorId
+}
+
+type AVSTask struct {
+	// TODO
+	task_created_timestamp uint64
+	responded bool
+	respond_fee_token uint64
+	respond_fee_limit uint64
 }
 
 type BlsConfig struct {
