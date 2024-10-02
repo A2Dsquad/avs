@@ -2,11 +2,10 @@ package operator
 
 import (
 	"math/big"
-	"net/rpc"
 
 	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
-	"golang.org/x/crypto/ed25519"
+	"go.uber.org/zap"
 
 	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
 )
@@ -16,11 +15,13 @@ type Config struct {
 }
 
 type Operator struct {
+	logger  *zap.Logger
 	account *aptos.Account
 	// TODO: change this to aptos-sdk fork
-	operatorId   []byte
-	avsAddress   aptos.AccountAddress
-	AggRpcClient AggregatorRpcClient
+	operatorId []byte
+	avsAddress aptos.AccountAddress
+	network    aptos.NetworkConfig
+	TaskQueue  chan AVSTask
 }
 type OperatorConfig struct {
 	BlsPrivateKey        []byte
@@ -29,22 +30,16 @@ type OperatorConfig struct {
 	// OperatorId           eigentypes.OperatorId
 }
 
-// type OperatorConfig struct {
-// 	// TODO: EcdsaConfig
-
-// }
+type AVSTask struct {
+	// TODO
+	task_created_timestamp uint64
+	responded bool
+	respond_fee_token uint64
+	respond_fee_limit uint64
+}
 
 type BlsConfig struct {
 	KeyPair *bls.KeyPair
-}
-
-type AlternativeSigner struct {
-	privateKey ed25519.PrivateKey
-	publicKey  ed25519.PublicKey
-}
-
-type OperatorSetParam struct {
-	max_operator_count uint32
 }
 
 type MetadataStr struct {
@@ -63,27 +58,10 @@ func (u *U128Struct) MarshalBCS(ser *bcs.Serializer) {
 	ser.U128(*u.Value)
 }
 
-type U8Vec struct {
+type U8Struct struct {
 	Value uint8
 }
 
-func (u *U8Vec) MarshalBCS(ser *bcs.Serializer) {
+func (u *U8Struct) MarshalBCS(ser *bcs.Serializer) {
 	ser.U8(u.Value)
-}
-
-type Signature struct {
-	bytes []byte
-}
-
-type PublicKey struct {
-	bytes []byte
-}
-
-type Pop struct {
-	bytes []byte
-}
-
-type AggregatorRpcClient struct {
-	rpcClient            *rpc.Client
-	aggregatorIpPortAddr string
 }

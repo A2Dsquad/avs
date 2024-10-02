@@ -9,6 +9,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/aptos-labs/aptos-go-sdk/crypto"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	"go.uber.org/zap"
 )
 
 type AptosAccountConfig struct {
@@ -25,7 +26,7 @@ func AptosClient(networkConfig aptos.NetworkConfig) *aptos.Client {
 	return client
 }
 
-func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accountConfig AptosAccountConfig) (*Operator, error) {
+func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config OperatorConfig, accountConfig AptosAccountConfig) (*Operator, error) {
 	operatorAccount, err := SignerFromConfig(accountConfig.configPath, accountConfig.profile)
 	if err != nil {
 		panic("Failed to create operator account:" + err.Error())
@@ -87,13 +88,6 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 		)
 	}
 
-	// connect to aggregator
-	// NewAggregatorRpcClient()
-	aggClient, err := NewAggregatorRpcClient(config.AggregatorIpPortAddr)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("can not create aggregator rpc client: %s", err)
-	// }
-
 	// Get OperatorId
 	var privKey crypto.BlsPrivateKey
 	privKey.FromBytes(config.BlsPrivateKey)
@@ -101,10 +95,12 @@ func NewOperator(networkConfig aptos.NetworkConfig, config OperatorConfig, accou
 
 	// return Operator
 	operator := Operator{
-		account:      operatorAccount,
-		operatorId:   operatorId,
-		avsAddress:   avsAddress,
-		AggRpcClient: *aggClient,
+		logger:     logger,
+		account:    operatorAccount,
+		operatorId: operatorId,
+		avsAddress: avsAddress,
+		network:    networkConfig,
+		TaskQueue:  make(chan AVSTask, 1),
 	}
 	return &operator, nil
 }
@@ -141,30 +137,6 @@ func InitQuorum(
 	if err != nil {
 		return fmt.Errorf("failed to serialize minimumStake: %s", err)
 	}
-
-	// "0xcc28657ec961d4a93d2b7a89853fb73912a45dd582cff9fa43ebe7fd7ec26799"
-	// faMetadata := GetMetadata(client)
-	// var test []Metadata
-
-	// faClient := FAMetdataClient(client)
-	// faStoreAddr, err := faClient.PrimaryStoreAddress(&accAddress)
-	// if err != nil {
-	// 	panic("Failed to ")
-	// }
-	// fmt.Println("faStoreAddr: ", faStoreAddr.String())
-	// hex, _:= hex.DecodeString("0x0572757065650100000000000000004038393534453933384132434137314536433445313139434230333341363036453341333537424245353843354430304235453132354236383238423745424331e7011f8b08000000000002ff3d8ecd6ec4200c84ef3cc58a7b13427ea9d4432f7d8928aa0c7636d136100149fbf885ed764ff68cbeb167dcc1dce04a13b3b0d1e5edc2fdb1137176920fabb3d9a90a5108cee0888bf32139e3c4d808889e42a030b17be4331b19173faa1f8cac6aa5846986bac6b9afda6648c350a3b06d4cdf2aec7487aa9648526ad960db894ee81e6609c0d379a49d2c92352b85e27d8f2e7cf8d4f0dbf9dbc4ae6bcc9f9618f7f05a96492e872e8cdb4ac8e4cb17e8f0588df3542480334f670e6db05a4b498743e37a6ffc476eeea472fe7ff2883f3567bf9aa419822b010000010572757065650000000300000000000000000000000000000000000000000000000000000000000000010e4170746f734672616d65776f726b00000000000000000000000000000000000000000000000000000000000000010b4170746f735374646c696200000000000000000000000000000000000000000000000000000000000000010a4d6f76655374646c696200")
-	// fmt.Println("hex: ", string(hex))
-	// bcs.Deserialize()
-	// addr := aptos.AccountAddress{}
-	// addr.ParseStringRelaxed("0xcc28657ec961d4a93d2b7a89853fb73912a45dd582cff9fa43ebe7fd7ec26799")
-	// metadataBz, err := json.Marshal(Metadata{
-	// 	Inner: addr,
-	// })
-	// if err != nil {
-	// 	return fmt.Errorf("failed to marshal metadata: %s", err)
-	// }
-	// metadataHex := hex.EncodeToString(metadataBz)
-	// fmt.Println("bz: ", metadataHex)
 
 	metadataAddr := GetMetadata(client).Inner
 
@@ -279,7 +251,6 @@ func IsOperatorRegistered(client *aptos.Client, contract aptos.AccountAddress, o
 	return status != 0
 }
 
-// quorum_numbers: vector<u8>, operator: &signer, params: bls_apk_registry::PubkeyRegistrationParams
 func RegisterOperator(
 	client *aptos.Client,
 	operatorAccount *aptos.Account,
@@ -295,7 +266,7 @@ func RegisterOperator(
 		panic("Failed to parse address:" + err.Error())
 	}
 	quorumSerializer := &bcs.Serializer{}
-	bcs.SerializeSequence([]U8Vec{
+	bcs.SerializeSequence([]U8Struct{
 		{
 			Value: quorumNumbers,
 		},
