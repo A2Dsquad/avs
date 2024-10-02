@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -202,7 +203,8 @@ func Start(logger *zap.Logger) *cobra.Command {
 				return fmt.Errorf("can not load operator config: %s", err)
 			}
 
-			_, err = NewOperator(
+			operator, err := NewOperator(
+				logger,
 				networkConfig,
 				*operatorConfig,
 				AptosAccountConfig{
@@ -213,6 +215,8 @@ func Start(logger *zap.Logger) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("can not create new operator: %s", err)
 			}
+
+			operator.Start(context.Background())
 
 			return nil
 			// client.SubmitTransaction()
