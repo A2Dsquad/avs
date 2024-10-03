@@ -49,6 +49,7 @@ module oracle::service_manager{
 
     struct ServiceManagerStore has key {
         tasks_state: SmartTable<vector<u8>, TaskState>,
+        tasks_creator: SmartTable<u64, address>,
         task_count: u64,
     }
 
@@ -72,6 +73,7 @@ module oracle::service_manager{
 
     #[event]
     struct TaskCreated has drop, store {
+        task_id: u64,
         creator: address,
         timestamp: u64,
         data_request: String,
@@ -131,9 +133,9 @@ module oracle::service_manager{
             });
         };
 
-        let current_balance = smart_table::borrow_with_default(&task_creator_balance_store(creator_address).balances, token, &0);
-
-        assert!(*current_balance >= respond_fee_limit, EINSUFFICIENT_FUNDS);
+        // TODO: handle fee
+        // let current_balance = smart_table::borrow_with_default(&task_creator_balance_store(creator_address).balances, token, &0);
+        // assert!(*current_balance >= respond_fee_limit, EINSUFFICIENT_FUNDS);
 
         let now = timestamp::now_seconds();
         let store_mut = service_manager_store_mut();
@@ -144,8 +146,10 @@ module oracle::service_manager{
             respond_fee_token: token, 
             respond_fee_limit,
         });
+        smart_table::upsert(&mut store_mut.tasks_creator, task_id, creator_address);
         
         event::emit(TaskCreated{
+            task_id,
             creator: creator_address, 
             timestamp: now,
             data_request,
@@ -157,7 +161,6 @@ module oracle::service_manager{
     public entry fun respond_to_task(
         aggregator: &signer,
         task_id: u64,
-        sender: address,
         responses: vector<u128>,
         signer_pubkeys: vector<vector<u8>>,
         signer_sigs: vector<vector<u8>>,
@@ -168,6 +171,8 @@ module oracle::service_manager{
     ) acquires ServiceManagerStore {
         let task_count = service_manager_store().task_count;
         assert!(task_id <= task_count, EINVALID_TASK_ID);
+
+        let sender = *smart_table::borrow(&service_manager_store().tasks_creator, task_id);
         let hash_data = vector<u8>[];
         vector::append(&mut hash_data, u64_to_vector_u8(task_id));
         vector::append(&mut hash_data, task_creator_store_seeds(sender));
@@ -231,6 +236,7 @@ module oracle::service_manager{
         let service_manager_signer = service_manager_signer();
         move_to(service_manager_signer, ServiceManagerStore{
             tasks_state: smart_table::new(),
+            tasks_creator: smart_table::new(),
             task_count: 0
         })
     }
