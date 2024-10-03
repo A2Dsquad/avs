@@ -28,6 +28,7 @@ module oracle::service_manager{
 
     const THRESHOLD_DENOMINATOR: u128 = 100; 
     const QUORUM_THRESHOLD_PERCENTAGE: u128 = 67;
+    const PRECISION: u64 = 1000000000;
 
     const ETASK_ALREADY_SUBMITTED: u64 = 1300;
     const ETASK_DOES_NOT_EXIST: u64 = 1301;
@@ -36,6 +37,8 @@ module oracle::service_manager{
     const EINSUFFICIENT_FUNDS: u64 = 1304;
     const ETHRESHOLD_NOT_MEET: u64 = 1305;
     const EINVALID_TASK_ID: u64 = 1306;
+    const ESIGNER_SIGNATURE_AMOUNT_NOT_MATCH: u64 = 1307;
+    const ESIGNER_RESPONSE_AMOUNT_NOT_MATCH: u64 = 1308;
 
     struct TaskState has store, drop, copy {
         task_created_timestamp: u64,
@@ -155,20 +158,33 @@ module oracle::service_manager{
         aggregator: &signer,
         task_id: u64,
         sender: address,
-        nonsigner_pubkeys: vector<vector<u8>>,
+        responses: vector<u128>,
+        signer_pubkeys: vector<vector<u8>>,
+        signer_sigs: vector<vector<u8>>,
         quorum_aggr_pks: vector<vector<u8>>,
         quorum_apk_indices: vector<u64>,
         total_stake_indices: vector<u64>,
-        non_signer_stake_indices: vector<vector<u64>>,
-        aggr_pks: vector<vector<u8>>,
-        aggr_sig: vector<vector<u8>>
+        signer_stake_indices: vector<vector<u64>>,
     ) acquires ServiceManagerStore {
         let task_count = service_manager_store().task_count;
         assert!(task_id <= task_count, EINVALID_TASK_ID);
         let hash_data = vector<u8>[];
         vector::append(&mut hash_data, u64_to_vector_u8(task_id));
         vector::append(&mut hash_data, task_creator_store_seeds(sender));
+
+        let signer_amount = vector::length(&signer_pubkeys);
+        assert!(signer_amount == vector::length(&signer_sigs), ESIGNER_SIGNATURE_AMOUNT_NOT_MATCH);
+        assert!(signer_amount == vector::length(&responses), ESIGNER_RESPONSE_AMOUNT_NOT_MATCH);
         let task_identifier = aptos_hash::keccak256(hash_data);
+        
+        let msg_hashes: vector<vector<u8>> = vector::empty();
+        for (i in 0..signer_amount) {
+            let response = *vector::borrow(&responses, i);
+            let msg_hash = hash_data;
+            vector::append(&mut msg_hash, u128_to_vector_u8(response));
+            let msg_hash = aptos_hash::keccak256(msg_hash);
+            vector::push_back(&mut msg_hashes, msg_hash);
+        };
 
         assert!(smart_table::contains(&service_manager_store().tasks_state, task_identifier), ETASK_DOES_NOT_EXIST);
         assert!(smart_table::borrow(&service_manager_store().tasks_state, task_identifier).responded, ETASK_ALREADY_RESPONDED);
@@ -179,23 +195,20 @@ module oracle::service_manager{
         task_state.responded = true;
         
         let (signed_stake_for_quorum, total_stake_for_quorum) = bls_sig_checker::check_signatures(
-            task_identifier,
             vector::singleton(0),
             smart_table::borrow(&service_manager_store().tasks_state, task_identifier).task_created_timestamp,
-            nonsigner_pubkeys,
+            msg_hashes,
+            signer_pubkeys,
+            signer_sigs,
             quorum_aggr_pks,
             quorum_apk_indices,
             total_stake_indices,
-            non_signer_stake_indices,
-            aggr_pks,
-            aggr_sig
+            signer_stake_indices
         );
 
         let signed_stake = *vector::borrow(&signed_stake_for_quorum, 0);
         let total_stake = *vector::borrow(&total_stake_for_quorum, 0);
         assert!((signed_stake * THRESHOLD_DENOMINATOR) >= (total_stake * QUORUM_THRESHOLD_PERCENTAGE), ETHRESHOLD_NOT_MEET);
-    
-        // TODO: distribute fee
     }
 
     #[view]
@@ -249,6 +262,22 @@ module oracle::service_manager{
         
         // Extract each byte from the u64 value
         let shift = 56; // Start with the highest byte
+        while (shift >= 0) {
+            let byte = (((value >> shift) & 0xFF) as u8);
+            vector::push_back(&mut result, byte);
+            if (shift == 0) {
+                break
+            };
+            shift = shift - 8;
+        };
+        result
+    }
+
+    inline fun u128_to_vector_u8(value: u128): vector<u8> {
+        let result = vector::empty<u8>();
+        
+        // Extract each byte from the u64 value
+        let shift = 120; // Start with the highest byte
         while (shift >= 0) {
             let byte = (((value >> shift) & 0xFF) as u8);
             vector::push_back(&mut result, byte);

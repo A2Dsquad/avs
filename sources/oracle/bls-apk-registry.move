@@ -4,8 +4,8 @@ module oracle::bls_apk_registry{
     use aptos_framework::timestamp;
 
     use aptos_std::crypto_algebra;
-    use aptos_std::bls12381::{AggrPublicKeysWithPoP, Signature, PublicKeyWithPoP, aggregate_pubkeys, aggregate_pubkey_to_bytes, signature_from_bytes, proof_of_possession_from_bytes, proof_of_possession_to_bytes, public_key_from_bytes_with_pop, public_key_with_pop_to_bytes, verify_signature_share};
-    use aptos_std::bls12381_algebra::{G1, FormatG1Uncompr};
+    use aptos_std::bls12381::{AggrPublicKeysWithPoP, Signature, PublicKeyWithPoP, aggregate_pubkeys, aggregate_pubkey_to_bytes, signature_from_bytes, proof_of_possession_from_bytes, proof_of_possession_to_bytes, public_key_from_bytes_with_pop, public_key_with_pop_to_bytes, public_key_with_pop_to_normal, verify_signature_share, verify_normal_signature};
+    use aptos_std::bls12381_algebra::{G1, HashG1XmdSha256SswuRo, FormatG1Uncompr};
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::option::{Self, Option};
 
@@ -19,6 +19,7 @@ module oracle::bls_apk_registry{
     friend oracle::registry_coordinator;
 
     const ZERO_PK_HASH: vector<u8> = x"ad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5";
+    const DST: vector<u8> = b"QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_";
     
     const BLS_APK_REGISTRY_NAME: vector<u8> = b"BLS_APK_REGISTRY_NAME";
 
@@ -133,20 +134,21 @@ module oracle::bls_apk_registry{
         let unwrapped_pubkey = option::borrow(&pubkey_with_pop);
         let pubkey_bytes = public_key_with_pop_to_bytes(unwrapped_pubkey);
         assert!(vector::length(&pubkey_bytes) == 48, EINVALID_PUBKEY_2);
-        //     let params = PubkeyRegistrationParams{ signature: signature_from_bytes(signature), pubkey:  *option::borrow(&pubkey_with_pop)};
-        // let pubkey_bytes = public_key_with_pop_to_bytes(&params.pubkey);
+
+        let pubkey_hash = crypto_algebra::hash_to<G1, HashG1XmdSha256SswuRo>(&DST, &pubkey);
+        let serialize_pk_hash = crypto_algebra::serialize<G1, FormatG1Uncompr>(&pubkey_hash);
 
         let store = bls_apk_registry_store();
         let operator_address = signer::address_of(operator);
         assert!(!smart_table::contains(&store.operator_to_pk_hash, operator_address), EOPERATOR_ALREADY_EXIST);
-        assert!(!smart_table::contains(&store.pk_hash_to_operator, pubkey_bytes), EPUBKEY_ALREADY_EXIST);
+        assert!(!smart_table::contains(&store.pk_hash_to_operator, serialize_pk_hash), EPUBKEY_ALREADY_EXIST);
 
         assert!(verify_signature_share(&signature_from_bytes(signature), unwrapped_pubkey, msg), ESIGNATURE_INVALID);
 
         let store_mut = bls_apk_registry_store_mut();
         smart_table::upsert(&mut store_mut.operator_to_pk, operator_address, *option::borrow(&pubkey_with_pop));
-        smart_table::upsert(&mut store_mut.operator_to_pk_hash, operator_address, pubkey_bytes);
-        smart_table::upsert(&mut store_mut.pk_hash_to_operator, pubkey_bytes, operator_address);
+        smart_table::upsert(&mut store_mut.operator_to_pk_hash, operator_address, serialize_pk_hash);
+        smart_table::upsert(&mut store_mut.pk_hash_to_operator, serialize_pk_hash, operator_address);
         
         // TODO emit event
         return pubkey_bytes
@@ -194,6 +196,21 @@ module oracle::bls_apk_registry{
             i = i + 1;
         }
     }
+
+    #[view]
+    public fun validate_signature(operator_id: vector<u8>, signature: vector<u8>, msg: vector<u8>): bool acquires BLSApkRegistryStore{
+        let store = bls_apk_registry_store();
+        if (!smart_table::contains(&store.pk_hash_to_operator, operator_id)) {
+            return false
+        };
+        let operator_address = *smart_table::borrow(&store.pk_hash_to_operator, operator_id);
+        if (!smart_table::contains(&store.operator_to_pk, operator_address)) {
+            return false
+        };
+        let pubkey_with_pop = smart_table::borrow(&store.operator_to_pk, operator_address);
+        let pubkey = public_key_with_pop_to_normal(pubkey_with_pop);
+        return verify_normal_signature(&signature_from_bytes(signature), &pubkey, msg)
+    } 
 
     #[view]
     public fun get_operator_id(operator: address): vector<u8> acquires BLSApkRegistryStore{
