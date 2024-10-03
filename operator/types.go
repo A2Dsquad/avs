@@ -21,7 +21,7 @@ type Operator struct {
 	operatorId []byte
 	avsAddress aptos.AccountAddress
 	network    aptos.NetworkConfig
-	TaskQueue  chan AVSTask
+	TaskQueue  chan map[string]interface{}
 }
 type OperatorConfig struct {
 	BlsPrivateKey        []byte
@@ -33,9 +33,9 @@ type OperatorConfig struct {
 type AVSTask struct {
 	// TODO
 	task_created_timestamp uint64
-	responded bool
-	respond_fee_token uint64
-	respond_fee_limit uint64
+	responded              bool
+	respond_fee_token      uint64
+	respond_fee_limit      uint64
 }
 
 type BlsConfig struct {
@@ -64,4 +64,12 @@ type U8Struct struct {
 
 func (u *U8Struct) MarshalBCS(ser *bcs.Serializer) {
 	ser.U8(u.Value)
+}
+
+type U64Struct struct {
+	Value uint64
+}
+
+func (u *U64Struct) MarshalBCS(ser *bcs.Serializer) {
+	ser.U64(u.Value)
 }

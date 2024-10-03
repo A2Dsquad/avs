@@ -5,10 +5,21 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 
 	aptos "github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"go.uber.org/zap"
+)
+
+const (
+	MaxRetries                        = 100
+	RetryInterval                     = 1 * time.Second
+	BlockInterval              uint64 = 1000
+	PollLatestBatchInterval           = 5 * time.Second
+	RemoveBatchFromSetInterval        = 5 * time.Minute
 )
 
 func (op *Operator) Start(ctx context.Context) error {
@@ -46,25 +57,34 @@ func (op *Operator) Start(ctx context.Context) error {
 }
 
 func (op *Operator) FetchTasks(ctx context.Context) error {
-	_, err := aptos.NewClient(op.network)
+	client, err := aptos.NewClient(op.network)
 	if err != nil {
 		return fmt.Errorf("failed to create aptos client: %v", err)
 	}
 
-	// // looping
-	// for {
-	// 	// TODO: make a temp variable to track for which latest version to search for events
-	// 	event, err := listenForEvent(client, op.avsAddress)
-	// 	if err != nil {
-	// 		op.logger.Warn("Failed to subscribe to new tasks", zap.Any("err", err))
-	// 		time.Sleep(RetryInterval)
-	// 		continue
-	// 	}
-	// 	// TODO: handle task queue full
-	// 	agg.TaskQueue <- event // Send event to the task queue
-	// 	agg.logger.Info("Queued new task for processing", zap.Any("event", event))
-	// 	return nil
-	// }
+	var taskCount uint64
+	// looping
+	for {
+		previousTaskCount := taskCount
+		newTaskCount, err := LatestTaskCount(client, op.avsAddress)
+		if err != nil {
+			op.logger.Warn("Failed to subscribe to new tasks", zap.Any("err", err))
+			time.Sleep(RetryInterval)
+			continue
+		}
+		taskCount = newTaskCount
+
+		if taskCount > previousTaskCount {
+			err := op.QueueTask(ctx, client, previousTaskCount, taskCount)
+			if err != nil {
+				return fmt.Errorf("error queuing task: %v", err)
+			}
+		}
+
+		// TODO: handle task queue full
+		// agg.TaskQueue <- event // Send event to the task queue
+		// agg.logger.Info("Queued new task for processing", zap.Any("event", event))
+	}
 	// TODO
 	return nil
 }
@@ -72,4 +92,66 @@ func (op *Operator) FetchTasks(ctx context.Context) error {
 func (op *Operator) RespondTask(ctx context.Context) error {
 	// TODO
 	return nil
+}
+
+func (op *Operator) QueueTask(ctx context.Context, client *aptos.Client, start uint64, end uint64) error {
+	for i := start + 1; i <= end; i++ {
+		task, err := LoadTaskById(client, op.avsAddress, i)
+		if err != nil {
+			return fmt.Errorf("error loading task: %v", err)
+		}
+		op.logger.Info("Loaded new task with id: %d", zap.Any("task id", i))
+		op.TaskQueue <- task
+		op.logger.Info("Queued new task with id: %d", zap.Any("task id", i))
+	}
+
+	return nil
+}
+
+func LoadTaskById(client *aptos.Client, contract aptos.AccountAddress, taskId uint64) (map[string]interface{}, error) {
+	taskIdBcs, err := bcs.SerializeU64(taskId)
+	if err != nil {
+		return nil, fmt.Errorf("can not SerializeU64: %v", err)
+	}
+	payload := &aptos.ViewPayload{
+		Module: aptos.ModuleId{
+			Address: contract,
+			Name:    "service_manager",
+		},
+		Function: "task_by_id",
+		ArgTypes: []aptos.TypeTag{},
+		Args: [][]byte{
+			taskIdBcs,
+		},
+	}
+	vals, err := client.View(payload)
+	if err != nil {
+		return nil, fmt.Errorf("can not get task count: %v", err)
+	}
+	task := vals[0].(map[string]interface{})
+	return task, nil
+}
+
+func LatestTaskCount(client *aptos.Client, contract aptos.AccountAddress) (uint64, error) {
+	payload := &aptos.ViewPayload{
+		Module: aptos.ModuleId{
+			Address: contract,
+			Name:    "service_manager",
+		},
+		Function: "task_count",
+		ArgTypes: []aptos.TypeTag{},
+		Args:     [][]byte{},
+	}
+
+	vals, err := client.View(payload)
+	if err != nil {
+		return 0, fmt.Errorf("can not get task count: %v", err)
+	}
+	countStr := vals[0].(string)
+
+	count, err := strconv.ParseUint(countStr, 10, 64) // base 10 and 64-bit size
+	if err != nil {
+		return 0, fmt.Errorf("error parsing task count: %s", err)
+	}
+	return uint64(count), nil
 }
