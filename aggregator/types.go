@@ -1,6 +1,8 @@
 package aggregator
 
 import (
+	"math/big"
+
 	"github.com/aptos-labs/aptos-go-sdk"
 	"go.uber.org/zap"
 )
@@ -26,8 +28,7 @@ type Aggregator struct {
 }
 
 type SignedTaskResponse struct {
-	Pubkey []byte
-
-	BlsSignature []byte
-	MsgHash      []byte
+	Pubkey    []byte
+	Signature []byte
+	Response  big.Int
 }

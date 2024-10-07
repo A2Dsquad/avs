@@ -130,12 +130,10 @@ func (op *Operator) RespondTask(ctx context.Context) error {
 		// 	panic("Failed to generate pubkey from privkey" + err.Error())
 		// }
 
-
-
 		op.AggRpcClient.SendSignedTaskResponseToAggregator(aggregator.SignedTaskResponse{
-			Pubkey: signature.Auth.PublicKey().Bytes(),
-			BlsSignature: signature.Auth.Signature().Bytes(),
-			MsgHash: bytesMsgHash,
+			Pubkey:    signature.Auth.PublicKey().Bytes(),
+			Signature: signature.Auth.Signature().Bytes(),
+			Response:  *price,
 		})
 	}
 

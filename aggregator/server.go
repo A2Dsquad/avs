@@ -72,7 +72,6 @@ func RespondToAvs(
 	signature [][]byte,
 	pubkey [][]byte,
 	responses []big.Int,
-	quorum_aggr_pks 
 ) error {
 	contract := aptos.AccountAddress{}
 	err := contract.ParseStringRelaxed(contractAddr)
