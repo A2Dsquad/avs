@@ -21,9 +21,15 @@ type Operator struct {
 	// TODO: change this to aptos-sdk fork
 	operatorId   []byte
 	avsAddress   aptos.AccountAddress
+	BlsPrivateKey        []byte
 	AggRpcClient AggregatorRpcClient
 	network      aptos.NetworkConfig
-	TaskQueue    chan map[string]interface{}
+	TaskQueue    chan Task
+}
+
+type Task struct {
+	Id   uint64
+	Task map[string]interface{}
 }
 
 type AggregatorRpcClient struct {

@@ -2,15 +2,20 @@ package operator
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"math/big"
+	"oracle-avs/aggregator"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
+	"github.com/aptos-labs/aptos-go-sdk/crypto"
 	"go.uber.org/zap"
 )
 
@@ -80,18 +85,97 @@ func (op *Operator) FetchTasks(ctx context.Context) error {
 				return fmt.Errorf("error queuing task: %v", err)
 			}
 		}
-
-		// TODO: handle task queue full
-		// agg.TaskQueue <- event // Send event to the task queue
-		// agg.logger.Info("Queued new task for processing", zap.Any("event", event))
 	}
-	// TODO
-	return nil
 }
 
 func (op *Operator) RespondTask(ctx context.Context) error {
+
+	client, err := aptos.NewClient(op.network)
+	if err != nil {
+		return fmt.Errorf("failed to create aptos client: %v", err)
+	}
 	// TODO
+	for task := range op.TaskQueue {
+		_ = task.Task["data_request"].(string)
+
+		taskId := task.Id
+
+		// TODO: get price
+		price := big.NewInt(1)
+
+		msghHash, err := GetMsgHash(client, op.avsAddress, taskId, *price)
+		if err != nil {
+			return fmt.Errorf("failed to GetMsgHash: %v", err)
+		}
+		fmt.Println("msghHash :", msghHash)
+
+		trimmedMsgHash := strings.TrimPrefix(msghHash, "0x")
+		bytesMsgHash, err := hex.DecodeString(trimmedMsgHash)
+		if err != nil {
+			return fmt.Errorf("failed to decode hex to string: %v", err)
+		}
+
+		var priv crypto.BlsPrivateKey
+		err = priv.FromBytes(op.BlsPrivateKey)
+		if err != nil {
+			panic("Failed to create bls priv key" + err.Error())
+		}
+		signature, err := priv.Sign(bytesMsgHash)
+		if err != nil {
+			panic("Failed to create signature" + err.Error())
+		}
+
+		// pubKey, err := priv.GeneratePubkey()
+		// if err != nil {
+		// 	panic("Failed to generate pubkey from privkey" + err.Error())
+		// }
+
+
+
+		op.AggRpcClient.SendSignedTaskResponseToAggregator(aggregator.SignedTaskResponse{
+			Pubkey: signature.Auth.PublicKey().Bytes(),
+			BlsSignature: signature.Auth.Signature().Bytes(),
+			MsgHash: bytesMsgHash,
+		})
+	}
+
+	// Get trong queue
+	// task_by_id
+	// lay gia
+	// get msg hash
+	// ki bls
+	// gui cho agg
 	return nil
+}
+
+func GetMsgHash(client *aptos.Client, contract aptos.AccountAddress, taskId uint64, response big.Int) (string, error) {
+	taskIdBcs, err := bcs.SerializeU64(taskId)
+	if err != nil {
+		return "", fmt.Errorf("can not SerializeU64: %v", err)
+	}
+
+	responseBcs, err := bcs.SerializeU128(response)
+	if err != nil {
+		return "", fmt.Errorf("can not SerializeU128: %v", err)
+	}
+	payload := &aptos.ViewPayload{
+		Module: aptos.ModuleId{
+			Address: contract,
+			Name:    "service_manager",
+		},
+		Function: "get_msg_hash",
+		ArgTypes: []aptos.TypeTag{},
+		Args: [][]byte{
+			taskIdBcs, responseBcs,
+		},
+	}
+	vals, err := client.View(payload)
+	if err != nil {
+		return "", fmt.Errorf("can not get msg hash: %v", err)
+	}
+	fmt.Println("vals :", vals)
+	task := vals[0].(string)
+	return task, nil
 }
 
 func (op *Operator) QueueTask(ctx context.Context, client *aptos.Client, start uint64, end uint64) error {
@@ -100,9 +184,12 @@ func (op *Operator) QueueTask(ctx context.Context, client *aptos.Client, start u
 		if err != nil {
 			return fmt.Errorf("error loading task: %v", err)
 		}
-		op.logger.Info("Loaded new task with id: %d", zap.Any("task id", i))
-		op.TaskQueue <- task
-		op.logger.Info("Queued new task with id: %d", zap.Any("task id", i))
+		op.logger.Info("Loaded new task with id:", zap.Any("task id", i))
+		op.TaskQueue <- Task{
+			Id:   i,
+			Task: task,
+		}
+		op.logger.Info("Queued new task with id:", zap.Any("task id", i))
 	}
 
 	return nil

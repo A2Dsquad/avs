@@ -197,7 +197,7 @@ module oracle::service_manager{
         assert!(smart_table::borrow(&service_manager_store().tasks_state, task_identifier).respond_fee_limit > 0, ETASK_HAS_NO_BALANCE);
         
         let (signed_stake_for_quorum, total_stake_for_quorum) = bls_sig_checker::check_signatures(
-            vector::singleton(0),
+            vector::singleton(1),
             smart_table::borrow(&service_manager_store().tasks_state, task_identifier).task_created_timestamp,
             msg_hashes,
             signer_pubkeys,

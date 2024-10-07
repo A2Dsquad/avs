@@ -26,7 +26,7 @@ func AptosClient(networkConfig aptos.NetworkConfig) *aptos.Client {
 	return client
 }
 
-func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config OperatorConfig, accountConfig AptosAccountConfig) (*Operator, error) {
+func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config OperatorConfig, accountConfig AptosAccountConfig, blsPriv []byte) (*Operator, error) {
 	operatorAccount, err := SignerFromConfig(accountConfig.configPath, accountConfig.profile)
 	if err != nil {
 		panic("Failed to create operator account:" + err.Error())
@@ -97,13 +97,14 @@ func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config O
 
 	// return Operator
 	operator := Operator{
-		logger:     logger,
-		account:    operatorAccount,
-		operatorId: operatorId,
-		avsAddress: avsAddress,
-		AggRpcClient: *aggClient,
-		network:    networkConfig,
-		TaskQueue:  make(chan map[string]interface{}, 100),
+		logger:        logger,
+		account:       operatorAccount,
+		operatorId:    operatorId,
+		avsAddress:    avsAddress,
+		BlsPrivateKey: blsPriv,
+		AggRpcClient:  *aggClient,
+		network:       networkConfig,
+		TaskQueue:     make(chan Task, 100),
 	}
 	return &operator, nil
 }

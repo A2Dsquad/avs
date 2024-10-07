@@ -30,6 +30,7 @@ func AggregatorCommand(zLogger *zap.Logger) *cobra.Command {
 	// // Add operator-specific subcommands here
 	aggregatorCmd.AddCommand(
 		Start(zLogger), // Example: 'operator start'
+		CreateAggregatorConfig(zLogger),
 	)
 
 	return aggregatorCmd
@@ -61,25 +62,77 @@ func Start(logger *zap.Logger) *cobra.Command {
 				return fmt.Errorf("wrong config: %s", err)
 			}
 
-			aggregator, err := NewAggregator(*aggregatorConfig, logger)
+			aggregator, err := NewAggregator(*aggregatorConfig, logger, networkConfig)
 			if err != nil {
 				logger.Error("Cannot create aggregator", zap.Any("err", err))
 				return err
 			}
 
-			// Listen for new task created in the ServiceManager contract in a separate goroutine
-			go func() {
-				listenErr := aggregator.SubscribeToNewTasks(networkConfig)
-				if listenErr != nil {
-					aggregator.logger.Fatal("Error subscribing for new tasks", zap.Any("err", listenErr))
-				}
-			}()
+			// // Listen for new task created in the ServiceManager contract in a separate goroutine
+			// go func() {
+			// 	listenErr := aggregator.SubscribeToNewTasks(networkConfig)
+			// 	if listenErr != nil {
+			// 		aggregator.logger.Fatal("Error subscribing for new tasks", zap.Any("err", listenErr))
+			// 	}
+			// }()
 
-			aggregator.Start(context.Background())
+			err = aggregator.Start(context.Background())
+			if err != nil {
+				logger.Error("Cannot start aggregator", zap.Any("err", err))
+				return err
+			}
 			return nil
 			// client.SubmitTransaction()
 		},
 	}
+	cmd.Flags().String(flagAggregatorConfig, "config/aggregator-config.json", "see the example at config/aggregator-example.json")
+	cmd.Flags().String(flagAptosNetwork, "devnet", "choose network to connect to: mainnet, testnet, devnet, localnet")
+	return cmd
+}
+
+func CreateAggregatorConfig(logger *zap.Logger) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "config",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			aggregatorConfigPath, err := cmd.Flags().GetString(flagAggregatorConfig)
+			if err != nil {
+				return errors.Wrap(err, flagAggregatorConfig)
+			}
+
+			avsAddress := aptos.AccountAddress{}
+			if err := avsAddress.ParseStringRelaxed(args[0]); err != nil {
+				return fmt.Errorf("failed to parse avs address: %s", err)
+			}
+
+			portAddr := args[1]
+			aggregatorConfig := AggregatorConfig{
+				ServerIpPortAddress: portAddr,
+				AvsAddress:          avsAddress.String(),
+				AccountConfig: AccountConfig{
+					AccountPath: aggregatorConfigPath,
+					Profile:     "aggregator",
+				},
+			}
+			bz, err := json.Marshal(aggregatorConfig)
+			if err != nil {
+				return fmt.Errorf("failed to marshal operator config: %s", err)
+			}
+
+			f, err := os.Create(aggregatorConfigPath)
+			if err != nil {
+				return fmt.Errorf("failed to create file at %s: %s", aggregatorConfigPath, err)
+			}
+			_, err = f.WriteString(string(bz))
+			if err != nil {
+				return fmt.Errorf("failed to write to file at %s: %s", aggregatorConfigPath, err)
+			}
+
+			return nil
+		},
+	}
+	cmd.Flags().String(flagAggregatorConfig, "config/aggregator-config.json", "see the example at config/aggregator-example.json")
 	return cmd
 }
 

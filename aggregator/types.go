@@ -2,22 +2,18 @@ package aggregator
 
 import (
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/aptos-labs/aptos-go-sdk/api"
-	"github.com/aptos-labs/aptos-go-sdk/crypto"
 	"go.uber.org/zap"
-
-	eigentypes "github.com/Layr-Labs/eigensdk-go/types"
 )
 
 type AggregatorConfig struct {
 	ServerIpPortAddress string
-	avsAddress          string
-	accountConfig       AccountConfig
+	AvsAddress          string
+	AccountConfig       AccountConfig
 }
 
 type AccountConfig struct {
-	accountPath string
-	profile     string
+	AccountPath string
+	Profile     string
 }
 
 type Aggregator struct {
@@ -25,10 +21,13 @@ type Aggregator struct {
 	AvsAddress        string
 	AggregatorAccount aptos.Account
 	AggregatorConfig  AggregatorConfig
-	TaskQueue         chan api.EventV2
+	TaskQueue         chan map[string]interface{}
+	Network           aptos.NetworkConfig
 }
 
 type SignedTaskResponse struct {
-	BlsSignature crypto.BlsSignature
-	OperatorId   eigentypes.OperatorId
+	Pubkey []byte
+
+	BlsSignature []byte
+	MsgHash      []byte
 }

@@ -253,6 +253,7 @@ func Start(logger *zap.Logger) *cobra.Command {
 					configPath: aptosPath,
 					profile:    accountProfile,
 				},
+				operatorConfig.BlsPrivateKey,
 			)
 			if err != nil {
 				return fmt.Errorf("can not create new operator: %s", err)
