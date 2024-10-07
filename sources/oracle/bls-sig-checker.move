@@ -139,7 +139,7 @@ module oracle::bls_sig_checker{
                 }
             }
         };
-        return (total_stake_for_quorum, signed_stake_for_quorum)
+        return (signed_stake_for_quorum, total_stake_for_quorum)
     }
 
     inline fun bls_sig_checker_signer(): &signer acquires BLSSigCheckerConfig{

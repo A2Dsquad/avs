@@ -43,6 +43,7 @@ module oracle::service_manager{
     struct TaskState has store, drop, copy {
         task_created_timestamp: u64,
         responded: bool,
+        response: u128,
         respond_fee_token: Object<Metadata>,
         respond_fee_limit: u64
     }
@@ -143,6 +144,7 @@ module oracle::service_manager{
         smart_table::upsert(&mut store_mut.tasks_state, task_identifier, TaskState{
             task_created_timestamp: now,
             responded: false,
+            response: 0,
             respond_fee_token: token, 
             respond_fee_limit,
         });
@@ -183,7 +185,7 @@ module oracle::service_manager{
         let task_identifier = aptos_hash::keccak256(hash_data);
         
         let msg_hashes: vector<vector<u8>> = vector::empty();
-        for (i in 0..signer_amount) {
+        for (i in 0..(signer_amount-1)) {
             let response = *vector::borrow(&responses, i);
             let msg_hash = hash_data;
             vector::append(&mut msg_hash, u128_to_vector_u8(response));
@@ -194,10 +196,6 @@ module oracle::service_manager{
         assert!(smart_table::contains(&service_manager_store().tasks_state, task_identifier), ETASK_DOES_NOT_EXIST);
         assert!(smart_table::borrow(&service_manager_store().tasks_state, task_identifier).responded, ETASK_ALREADY_RESPONDED);
         assert!(smart_table::borrow(&service_manager_store().tasks_state, task_identifier).respond_fee_limit > 0, ETASK_HAS_NO_BALANCE);
-
-        let store_mut = service_manager_store_mut();
-        let task_state = smart_table::borrow_mut(&mut store_mut.tasks_state, task_identifier);
-        task_state.responded = true;
         
         let (signed_stake_for_quorum, total_stake_for_quorum) = bls_sig_checker::check_signatures(
             vector::singleton(0),
@@ -211,9 +209,18 @@ module oracle::service_manager{
             signer_stake_indices
         );
 
+        let store_mut = service_manager_store_mut();
+        let task_state = smart_table::borrow_mut(&mut store_mut.tasks_state, task_identifier);
+        task_state.responded = true;
+
         let signed_stake = *vector::borrow(&signed_stake_for_quorum, 0);
         let total_stake = *vector::borrow(&total_stake_for_quorum, 0);
         assert!((signed_stake * THRESHOLD_DENOMINATOR) >= (total_stake * QUORUM_THRESHOLD_PERCENTAGE), ETHRESHOLD_NOT_MEET);
+
+        let (final_reponse, slash_indices) = get_final_reponse(responses);
+        task_state.response = final_reponse;
+
+        // TODO: slash 
     }
 
     #[view]
@@ -293,6 +300,25 @@ module oracle::service_manager{
             shift = shift - 8;
         };
         result
+    }
+
+    inline fun get_final_reponse(responses: vector<u128>): (u128, vector<u64>) {
+        let signer_amount = vector::length(&responses);
+        let sum_response = 0;
+        for (i in 0..(signer_amount-1)) {
+            let response = *vector::borrow(&responses, i);
+            sum_response = sum_response + response;
+        };
+
+        let final_response = sum_response / (signer_amount as u128);
+        let slash_indices: vector<u64> = vector::empty();
+        for (i in 0..(signer_amount-1)) {
+            let response = *vector::borrow(&responses, i);
+            if ((response * 100 > final_response * 110) || (response * 100 < final_response * 90)) {
+                vector::push_back(&mut slash_indices, i);
+            }
+        };
+        (final_response, slash_indices)
     }
 
     inline fun service_manager_store(): &ServiceManagerStore  acquires ServiceManagerStore {
