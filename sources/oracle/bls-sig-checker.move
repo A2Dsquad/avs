@@ -66,17 +66,11 @@ module oracle::bls_sig_checker{
         signer_pubkeys: vector<vector<u8>>,
         signer_sigs: vector<vector<u8>>,
         quorum_aggr_pks: vector<vector<u8>>,
-        quorum_apk_indices: vector<u64>,
-        total_stake_indices: vector<u64>,
-        signer_stake_indices: vector<vector<u64>>,
     ): (vector<u128>, vector<u128>) {
         let quorum_length = vector::length(&quorum_numbers);
         assert!(quorum_length > 0, EEMPTY_QUORUM);
         assert!(
-            (quorum_length == vector::length(&quorum_aggr_pks)) &&
-            (quorum_length == vector::length(&quorum_apk_indices)) &&
-            (quorum_length == vector::length(&total_stake_indices)) && 
-            (quorum_length == vector::length(&signer_stake_indices)),
+            (quorum_length == vector::length(&quorum_aggr_pks)),
             EINPUT_QUORUM_LENGTH_MISMATCH
         );
         let signer_pubkeys_length = vector::length(&signer_pubkeys);
@@ -112,13 +106,11 @@ module oracle::bls_sig_checker{
             assert!(bls_apk_registry::get_aggr_pk_hash_at_timestamp(
                 quorum_number,
                 reference_timestamp,
-                *vector::borrow(&quorum_apk_indices, i)
             ) == quorum_apk, EQUORUM_APK_HASH_MISMATCH);
 
-            let total_stake_quorum = stake_registry::total_stake_at_timestamp_from_index(
+            let total_stake_quorum = stake_registry::total_stake_at_timestamp(
                 quorum_number, 
-                reference_timestamp, 
-                *vector::borrow(&total_stake_indices, i)
+                reference_timestamp
             );
             vector::push_back(&mut total_stake_for_quorum, total_stake_quorum);
             vector::push_back(&mut signed_stake_for_quorum, 0);
@@ -129,11 +121,10 @@ module oracle::bls_sig_checker{
                 if (1 == (quorum_bitmap >> quorum_number) & 1) {
                     let signed_stake = vector::borrow_mut(&mut signed_stake_for_quorum, i);
                     let operator_id = vector::borrow(&mut pubkey_hashes, j);
-                    *signed_stake = *signed_stake + stake_registry::get_stake_at_timestamp_and_index(
+                    *signed_stake = *signed_stake + stake_registry::get_stake_at_timestamp(
                         quorum_number, 
                         reference_timestamp, 
-                        *operator_id,
-                        *vector::borrow(vector::borrow(&signer_stake_indices, i), signer_quorum_index)
+                        *operator_id
                     );
                     signer_quorum_index = signer_quorum_index + 1;
                 }

@@ -375,7 +375,7 @@ module oracle::registry_coordinator{
         let store = registry_coordinator_store();
         let operator_bitmap_history = smart_table::borrow(&store.operator_bitmap_history, operator_id);
         let operator_bitmap_history_length = vector::length(operator_bitmap_history);
-        for (i in 0..operator_bitmap_history_length) {
+        for (i in 0..(operator_bitmap_history_length - 1)) {
             let index = operator_bitmap_history_length - i - 1;
             let update_timestamp = vector::borrow(operator_bitmap_history, i).update_timestamp;
             if (update_timestamp < timestamp) {

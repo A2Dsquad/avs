@@ -167,9 +167,6 @@ module oracle::service_manager{
         signer_pubkeys: vector<vector<u8>>,
         signer_sigs: vector<vector<u8>>,
         quorum_aggr_pks: vector<vector<u8>>,
-        quorum_apk_indices: vector<u64>,
-        total_stake_indices: vector<u64>,
-        signer_stake_indices: vector<vector<u64>>,
     ) acquires ServiceManagerStore {
         let task_count = service_manager_store().task_count;
         assert!(task_id <= task_count, EINVALID_TASK_ID);
@@ -204,9 +201,6 @@ module oracle::service_manager{
             signer_pubkeys,
             signer_sigs,
             quorum_aggr_pks,
-            quorum_apk_indices,
-            total_stake_indices,
-            signer_stake_indices
         );
 
         let store_mut = service_manager_store_mut();
