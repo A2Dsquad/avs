@@ -168,7 +168,6 @@ module oracle::service_manager{
         responses: vector<u128>,
         signer_pubkeys: vector<vector<u8>>,
         signer_sigs: vector<vector<u8>>,
-        quorum_aggr_pks: vector<vector<u8>>,
     ) acquires ServiceManagerStore {
         let task_count = service_manager_store().task_count;
         assert!(task_id <= task_count, EINVALID_TASK_ID);
@@ -202,7 +201,6 @@ module oracle::service_manager{
             msg_hashes,
             signer_pubkeys,
             signer_sigs,
-            quorum_aggr_pks,
         );
 
         let store_mut = service_manager_store_mut();

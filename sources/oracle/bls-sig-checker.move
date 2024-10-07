@@ -65,14 +65,9 @@ module oracle::bls_sig_checker{
         msg_hashes: vector<vector<u8>>, 
         signer_pubkeys: vector<vector<u8>>,
         signer_sigs: vector<vector<u8>>,
-        quorum_aggr_pks: vector<vector<u8>>,
     ): (vector<u128>, vector<u128>) {
         let quorum_length = vector::length(&quorum_numbers);
         assert!(quorum_length > 0, EEMPTY_QUORUM);
-        assert!(
-            (quorum_length == vector::length(&quorum_aggr_pks)),
-            EINPUT_QUORUM_LENGTH_MISMATCH
-        );
         let signer_pubkeys_length = vector::length(&signer_pubkeys);
 
         let now = timestamp::now_seconds();
@@ -101,13 +96,7 @@ module oracle::bls_sig_checker{
         for (i in 0..(quorum_length - 1)) {
             // TODO: registryCoordinator.quorumUpdateBlockNumber
 
-            let quorum_apk = *vector::borrow(&quorum_aggr_pks, i);
             let quorum_number = *vector::borrow(&quorum_numbers, i);
-            assert!(bls_apk_registry::get_aggr_pk_hash_at_timestamp(
-                quorum_number,
-                reference_timestamp,
-            ) == quorum_apk, EQUORUM_APK_HASH_MISMATCH);
-
             let total_stake_quorum = stake_registry::total_stake_at_timestamp(
                 quorum_number, 
                 reference_timestamp
