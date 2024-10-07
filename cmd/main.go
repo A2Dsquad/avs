@@ -5,6 +5,7 @@ import (
 	"go.uber.org/zap"
 
 	operator "oracle-avs/operator"
+	"oracle-avs/aggregator"
 )
 
 func main() {
@@ -23,6 +24,7 @@ func main() {
 
 	rootCmd.AddCommand(
 		operator.OperatorCommand(zLogger),
+		aggregator.AggregatorCommand(zLogger),
 	)
 
 	err := rootCmd.Execute()

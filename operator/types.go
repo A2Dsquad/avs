@@ -2,6 +2,7 @@ package operator
 
 import (
 	"math/big"
+	"net/rpc"
 
 	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
@@ -18,11 +19,18 @@ type Operator struct {
 	logger  *zap.Logger
 	account *aptos.Account
 	// TODO: change this to aptos-sdk fork
-	operatorId []byte
-	avsAddress aptos.AccountAddress
-	network    aptos.NetworkConfig
-	TaskQueue  chan map[string]interface{}
+	operatorId   []byte
+	avsAddress   aptos.AccountAddress
+	AggRpcClient AggregatorRpcClient
+	network      aptos.NetworkConfig
+	TaskQueue    chan map[string]interface{}
 }
+
+type AggregatorRpcClient struct {
+	rpcClient            *rpc.Client
+	aggregatorIpPortAddr string
+}
+
 type OperatorConfig struct {
 	BlsPrivateKey        []byte
 	AvsAddress           string

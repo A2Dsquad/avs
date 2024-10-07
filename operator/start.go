@@ -93,12 +93,15 @@ func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config O
 	privKey.FromBytes(config.BlsPrivateKey)
 	operatorId := privKey.Inner.PublicKey().Marshal()
 
+	aggClient, err := NewAggregatorRpcClient(config.AggregatorIpPortAddr)
+
 	// return Operator
 	operator := Operator{
 		logger:     logger,
 		account:    operatorAccount,
 		operatorId: operatorId,
 		avsAddress: avsAddress,
+		AggRpcClient: *aggClient,
 		network:    networkConfig,
 		TaskQueue:  make(chan map[string]interface{}, 100),
 	}
