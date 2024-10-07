@@ -49,7 +49,7 @@ require (
 )
 
 replace (
-	github.com/aptos-labs/aptos-go-sdk => github.com/decentrio/aptos-go-sdk v0.0.0-20240927062750-43c527b7eda6
+	github.com/aptos-labs/aptos-go-sdk => github.com/decentrio/aptos-go-sdk v0.0.0-20241007104016-43369f521d0e
 	github.com/cosmos/crypto => github.com/decentrio/crypto v0.1.3-0.20240927062649-7a497320b85c
 	github.com/decentrio/oracle-avs => ./..
 )
