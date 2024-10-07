@@ -233,6 +233,17 @@ module oracle::service_manager{
         service_manager_store().task_count
     }
 
+    #[view]
+    public fun get_msg_hash(task_id: u64, response: u128): vector<u8> acquires ServiceManagerStore{
+        let creator = *smart_table::borrow(&service_manager_store().tasks_creator, task_id);
+        let hash_data = vector<u8>[];
+        vector::append(&mut hash_data, u64_to_vector_u8(task_id));
+        vector::append(&mut hash_data, task_creator_store_seeds(creator));
+        vector::append(&mut hash_data, u128_to_vector_u8(response));
+        return aptos_hash::keccak256(hash_data)
+    }
+
+
     public fun create_service_manager_store() acquires ServiceManagerConfigs{
         let service_manager_signer = service_manager_signer();
         move_to(service_manager_signer, ServiceManagerStore{
