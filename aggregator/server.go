@@ -2,7 +2,6 @@ package aggregator
 
 import (
 	"fmt"
-	"math/big"
 	"net/http"
 	"net/rpc"
 
@@ -55,48 +54,33 @@ func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse
 	return nil
 }
 
-// public entry fun respond_to_task(
-// 	aggregator: &signer,
-// 	task_id: u64,
-// 	responses: vector<u128>,
-// 	signer_pubkeys: vector<vector<u8>>,
-// 	signer_sigs: vector<vector<u8>>,
-// 	quorum_aggr_pks: vector<vector<u8>>,
-// ) acquires ServiceManagerStore {
-
 func RespondToAvs(
 	client *aptos.Client,
 	operatorAccount *aptos.Account,
 	contractAddr string,
 	taskId uint64,
-	signature [][]byte,
-	pubkey [][]byte,
-	responses []big.Int,
+	signature []BytesStruct,
+	pubkey []BytesStruct,
+	responses []U128Struct,
 ) error {
 	contract := aptos.AccountAddress{}
 	err := contract.ParseStringRelaxed(contractAddr)
 	if err != nil {
 		panic("Failed to parse address:" + err.Error())
 	}
-	quorumSerializer := &bcs.Serializer{}
-	bcs.SerializeSequence([]U8Struct{
-		{
-			Value: quorumNumbers,
-		},
-	}, quorumSerializer)
+	taskIdBcs, err := bcs.SerializeU64(taskId)
+	if err != nil {
+		panic("Failed to bcs serialize task id:" + err.Error())
+	}
 
-	sig, err := bcs.SerializeBytes(signature)
-	if err != nil {
-		panic("Failed to bcs serialize signature:" + err.Error())
-	}
-	pk, err := bcs.SerializeBytes(pubkey)
-	if err != nil {
-		panic("Failed to bcs serialize pubkey:" + err.Error())
-	}
-	pop, err := bcs.SerializeBytes(proofPossession)
-	if err != nil {
-		panic("Failed to bcs serialize proof of possession:" + err.Error())
-	}
+	sigSerializer := bcs.Serializer{}
+	bcs.SerializeSequence(signature, &sigSerializer)
+
+	pubkeySerializer := bcs.Serializer{}
+	bcs.SerializeSequence(pubkey, &pubkeySerializer)
+
+	responseSerializer := bcs.Serializer{}
+	bcs.SerializeSequence(responses, &responseSerializer)
 	payload := aptos.EntryFunction{
 		Module: aptos.ModuleId{
 			Address: contract,
@@ -105,7 +89,7 @@ func RespondToAvs(
 		Function: "respond_to_task",
 		ArgTypes: []aptos.TypeTag{},
 		Args: [][]byte{
-			quorumSerializer.ToBytes(), sig, pk, pop,
+			taskIdBcs, sigSerializer.ToBytes(), pubkeySerializer.ToBytes(), responseSerializer.ToBytes(),
 		},
 	}
 	// Build transaction
