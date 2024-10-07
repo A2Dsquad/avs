@@ -44,6 +44,7 @@ module oracle::service_manager{
         task_created_timestamp: u64,
         responded: bool,
         response: u128,
+        data_request: String,
         respond_fee_token: Object<Metadata>,
         respond_fee_limit: u64
     }
@@ -145,6 +146,7 @@ module oracle::service_manager{
             task_created_timestamp: now,
             responded: false,
             response: 0,
+            data_request: data_request,
             respond_fee_token: token, 
             respond_fee_limit,
         });
@@ -243,6 +245,17 @@ module oracle::service_manager{
         return aptos_hash::keccak256(hash_data)
     }
 
+    #[view]
+    public fun task_by_id(task_id: u64): TaskState acquires ServiceManagerStore{
+        let creator = *smart_table::borrow(&service_manager_store().tasks_creator, task_id);
+        let hash_data = vector<u8>[];
+        vector::append(&mut hash_data, u64_to_vector_u8(task_id));
+        vector::append(&mut hash_data, task_creator_store_seeds(creator));
+
+        let task_identifier = aptos_hash::keccak256(hash_data);
+        let store = service_manager_store();
+        return *smart_table::borrow(&store.tasks_state, task_identifier)
+    }
 
     public fun create_service_manager_store() acquires ServiceManagerConfigs{
         let service_manager_signer = service_manager_signer();
