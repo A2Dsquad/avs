@@ -192,8 +192,9 @@ module oracle::service_manager{
         };
 
         assert!(smart_table::contains(&service_manager_store().tasks_state, task_identifier), ETASK_DOES_NOT_EXIST);
-        assert!(smart_table::borrow(&service_manager_store().tasks_state, task_identifier).responded, ETASK_ALREADY_RESPONDED);
-        assert!(smart_table::borrow(&service_manager_store().tasks_state, task_identifier).respond_fee_limit > 0, ETASK_HAS_NO_BALANCE);
+        assert!(!smart_table::borrow(&service_manager_store().tasks_state, task_identifier).responded, ETASK_ALREADY_RESPONDED);
+        // TODO: later
+        // assert!(smart_table::borrow(&service_manager_store().tasks_state, task_identifier).respond_fee_limit > 0, ETASK_HAS_NO_BALANCE);
         
         let (signed_stake_for_quorum, total_stake_for_quorum) = bls_sig_checker::check_signatures(
             vector::singleton(1),
@@ -206,11 +207,11 @@ module oracle::service_manager{
         let store_mut = service_manager_store_mut();
         let task_state = smart_table::borrow_mut(&mut store_mut.tasks_state, task_identifier);
         task_state.responded = true;
-
+        
         let signed_stake = *vector::borrow(&signed_stake_for_quorum, 0);
         let total_stake = *vector::borrow(&total_stake_for_quorum, 0);
         assert!((signed_stake * THRESHOLD_DENOMINATOR) >= (total_stake * QUORUM_THRESHOLD_PERCENTAGE), ETHRESHOLD_NOT_MEET);
-
+        assert!(false, 12213123);
         let (final_reponse, slash_indices) = get_final_reponse(responses);
         task_state.response = final_reponse;
 

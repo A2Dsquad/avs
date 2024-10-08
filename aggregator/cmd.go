@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	flagAptosNetwork     = "aptos-network"
-	flagAggregatorConfig = "aggregator-config"
+	flagAptosNetwork          = "aptos-network"
+	flagAggregatorConfig      = "aggregator-config"
+	flagAggregatorAccountPath = "aggregator-account"
 )
 
 func AggregatorCommand(zLogger *zap.Logger) *cobra.Command {
@@ -96,6 +97,11 @@ func CreateAggregatorConfig(logger *zap.Logger) *cobra.Command {
 		Short: "config",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			aggregatorAccountPath, err := cmd.Flags().GetString(flagAggregatorAccountPath)
+			if err != nil {
+				return errors.Wrap(err, flagAggregatorConfig)
+			}
+
 			aggregatorConfigPath, err := cmd.Flags().GetString(flagAggregatorConfig)
 			if err != nil {
 				return errors.Wrap(err, flagAggregatorConfig)
@@ -111,7 +117,7 @@ func CreateAggregatorConfig(logger *zap.Logger) *cobra.Command {
 				ServerIpPortAddress: portAddr,
 				AvsAddress:          avsAddress.String(),
 				AccountConfig: AccountConfig{
-					AccountPath: aggregatorConfigPath,
+					AccountPath: aggregatorAccountPath,
 					Profile:     "aggregator",
 				},
 			}
@@ -132,7 +138,8 @@ func CreateAggregatorConfig(logger *zap.Logger) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().String(flagAggregatorConfig, "config/aggregator-config.json", "see the example at config/aggregator-example.json")
+	cmd.Flags().String(flagAggregatorAccountPath, ".aptos/config.yaml", "default for the account derivation")
+	cmd.Flags().String(flagAggregatorConfig, "config/aggregator-config.json", "path for the config file of aggregator")
 	return cmd
 }
 

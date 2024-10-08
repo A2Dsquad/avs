@@ -29,9 +29,10 @@ type Aggregator struct {
 }
 
 type SignedTaskResponse struct {
+	TaskId    uint64
 	Pubkey    []byte
 	Signature []byte
-	Response  big.Int
+	Response  *big.Int
 }
 
 type U128Struct struct {

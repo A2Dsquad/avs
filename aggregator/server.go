@@ -47,16 +47,42 @@ func (agg *Aggregator) RespondTask(signedTaskResponse SignedTaskResponse, reply 
 }
 
 func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse) error {
+	client, err := aptos.NewClient(agg.Network)
+	if err != nil {
+		return fmt.Errorf("failed to create aptos client: %v", err)
+	}
 
+	// TODO: aggregate
+	err = RespondToAvs(client, &agg.AggregatorAccount, agg.AvsAddress, signedTaskResponse.TaskId,
+		[]BytesStruct{{
+			Value: signedTaskResponse.Signature,
+		}},
+		[]BytesStruct{{
+			Value: signedTaskResponse.Pubkey,
+		}},
+		[]U128Struct{{
+			Value: signedTaskResponse.Response,
+		}},
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to respond task: %v", err)
+	}
 	// build the response
 	// query if quorum has sastified
 	// create tx
 	return nil
 }
 
+// aggregator: &signer,
+// task_id: u64,
+// responses: vector<u128>,
+// signer_pubkeys: vector<vector<u8>>,
+// signer_sigs: vector<vector<u8>>,
+
 func RespondToAvs(
 	client *aptos.Client,
-	operatorAccount *aptos.Account,
+	aggregatorAccount *aptos.Account,
 	contractAddr string,
 	taskId uint64,
 	signature []BytesStruct,
@@ -89,22 +115,23 @@ func RespondToAvs(
 		Function: "respond_to_task",
 		ArgTypes: []aptos.TypeTag{},
 		Args: [][]byte{
-			taskIdBcs, sigSerializer.ToBytes(), pubkeySerializer.ToBytes(), responseSerializer.ToBytes(),
+			taskIdBcs, responseSerializer.ToBytes(), pubkeySerializer.ToBytes(), sigSerializer.ToBytes(),
 		},
 	}
+	fmt.Println("aggregatorAccount.AccountAddress() :", aggregatorAccount.AccountAddress())
 	// Build transaction
-	rawTxn, err := client.BuildTransaction(operatorAccount.AccountAddress(),
+	rawTxn, err := client.BuildTransaction(aggregatorAccount.AccountAddress(),
 		aptos.TransactionPayload{Payload: &payload})
 	if err != nil {
 		panic("Failed to build transaction:" + err.Error())
 	}
 
 	// Sign transaction
-	signedTxn, err := rawTxn.SignedTransaction(operatorAccount)
+	signedTxn, err := rawTxn.SignedTransaction(aggregatorAccount)
 	if err != nil {
 		panic("Failed to sign transaction:" + err.Error())
 	}
-	fmt.Printf("Submit register operator for %s\n", operatorAccount.AccountAddress())
+	fmt.Printf("Submit register operator for %s\n", aggregatorAccount.AccountAddress())
 
 	// Submit and wait for it to complete
 	submitResult, err := client.SubmitTransaction(signedTxn)
@@ -122,7 +149,7 @@ func RespondToAvs(
 	fmt.Printf("The transaction completed with hash: %s and version %d\n", userTxn.Hash, userTxn.Version)
 	if !userTxn.Success {
 		// TODO: log something more
-		panic("Failed to register operator")
+		panic("Failed to respond to avs")
 	}
 	return nil
 }

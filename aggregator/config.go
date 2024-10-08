@@ -2,6 +2,7 @@ package aggregator
 
 import (
 	"encoding/hex"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -29,7 +30,7 @@ func SignerFromConfig(path string, profile string) (*aptos.Account, error) {
 	if err != nil {
 		log.Printf("yamlFile.Get err   #%v ", err)
 	}
-
+	fmt.Println("yamlFile :", string(yamlFile))
 	var aptosConfig AptosConfig
 	err = yaml.Unmarshal(yamlFile, &aptosConfig)
 	if err != nil {

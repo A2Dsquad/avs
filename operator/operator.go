@@ -131,18 +131,12 @@ func (op *Operator) RespondTask(ctx context.Context) error {
 		// }
 
 		op.AggRpcClient.SendSignedTaskResponseToAggregator(aggregator.SignedTaskResponse{
+			TaskId:    taskId,
 			Pubkey:    signature.Auth.PublicKey().Bytes(),
 			Signature: signature.Auth.Signature().Bytes(),
-			Response:  *price,
+			Response:  price,
 		})
 	}
-
-	// Get trong queue
-	// task_by_id
-	// lay gia
-	// get msg hash
-	// ki bls
-	// gui cho agg
 	return nil
 }
 
@@ -171,7 +165,6 @@ func GetMsgHash(client *aptos.Client, contract aptos.AccountAddress, taskId uint
 	if err != nil {
 		return "", fmt.Errorf("can not get msg hash: %v", err)
 	}
-	fmt.Println("vals :", vals)
 	task := vals[0].(string)
 	return task, nil
 }
