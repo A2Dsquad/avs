@@ -50,3 +50,31 @@ type BytesStruct struct {
 func (b *BytesStruct) MarshalBCS(ser *bcs.Serializer) {
 	ser.WriteBytes(b.Value)
 }
+
+type U8Struct struct {
+	Value uint8
+}
+
+func (u *U8Struct) MarshalBCS(ser *bcs.Serializer) {
+	ser.U8(u.Value)
+}
+
+type VecVecAddr struct {
+	Value [][]aptos.AccountAddress
+}
+
+func (v *VecVecAddr) MarshalBCS(ser *bcs.Serializer) {
+	for _, outer := range v.Value {
+		for _, inner := range outer {
+			inner.MarshalBCS(ser)
+		}
+	}
+}
+
+type Addr struct {
+	Value aptos.AccountAddress
+}
+
+func (v *Addr) MarshalBCS(ser *bcs.Serializer) {
+	v.Value.MarshalBCS(ser)
+}

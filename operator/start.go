@@ -94,6 +94,9 @@ func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config O
 	operatorId := privKey.Inner.PublicKey().Marshal()
 
 	aggClient, err := NewAggregatorRpcClient(config.AggregatorIpPortAddr)
+	if err != nil {
+		return nil, fmt.Errorf("can not create new aggregator Rpc Client: %v", err)
+	}
 
 	// return Operator
 	operator := Operator{
