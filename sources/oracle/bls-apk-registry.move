@@ -152,7 +152,7 @@ module oracle::bls_apk_registry{
         smart_table::upsert(&mut store_mut.pk_hash_to_operator, serialize_pk_hash, operator_address);
         
         // TODO emit event
-        return pubkey_bytes
+        return serialize_pk_hash
     }
 
     fun update_quorum_apk(quorum_numbers: vector<u8>, pubkey: PublicKeyWithPoP, register: bool) acquires BLSApkRegistryStore {
@@ -234,7 +234,7 @@ module oracle::bls_apk_registry{
         let quorum_apk_update = smart_table::borrow(&store.apk_history, quorum_number);
         let quorum_apk_update_length = vector::length(quorum_apk_update);
 
-        for (i in 0..(quorum_apk_update_length - 1)) {
+        for (i in 0..(quorum_apk_update_length)) {
             let index = quorum_apk_update_length - i - 1;
             let update_timestamp = vector::borrow(quorum_apk_update, i).update_timestamp;
             if (update_timestamp < timestamp) {

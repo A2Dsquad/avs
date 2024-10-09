@@ -334,7 +334,7 @@ module oracle::stake_registry{
         let total_stake_history_length = vector::length(total_stake_history);
         assert!(total_stake_history_length > 0, ESTAKE_HISTORY_INDEX_INVALID);
         
-        for (i in 0..(total_stake_history_length - 1)) {
+        for (i in 0..(total_stake_history_length)) {
             let index = total_stake_history_length - i - 1;
             let total_stake_update = vector::borrow(total_stake_history, index);
             if (total_stake_update.update_timestamp < timestamp) {
@@ -355,7 +355,7 @@ module oracle::stake_registry{
         let quorum_stake_history_length = vector::length(quorum_stake_history);
         assert!(quorum_stake_history_length > 0, ESTAKE_HISTORY_INDEX_INVALID);
         
-        for (i in 0..(quorum_stake_history_length - 1)) {
+        for (i in 0..(quorum_stake_history_length)) {
             let index = quorum_stake_history_length - i - 1;
             let stake_update = vector::borrow(quorum_stake_history, index);
             if (stake_update.update_timestamp < timestamp) {

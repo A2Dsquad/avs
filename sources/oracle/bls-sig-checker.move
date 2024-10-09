@@ -78,22 +78,23 @@ module oracle::bls_sig_checker{
         let quorum_bitmaps: vector<u256> = vector::empty();
         let pubkey_hashes: vector<vector<u8>> = vector::empty();
 
-        for (i in 0..(signer_pubkeys_length-1)) {
+        for (i in 0..(signer_pubkeys_length)) {
             let signer_pubkey = *vector::borrow(&signer_pubkeys, i);
             let signer_sig = *vector::borrow(&signer_sigs, i);
             let msg_hash = *vector::borrow(&msg_hashes, i);
             let pubkey_hash = crypto_algebra::hash_to<G1, HashG1XmdSha256SswuRo>(&DST, &signer_pubkey);
             let serialize_pk_hash = crypto_algebra::serialize<G1, FormatG1Uncompr>(&pubkey_hash);
-
+            
             vector::push_back(&mut pubkey_hashes, serialize_pk_hash);
             // TODO: change to specific timestamp
             vector::push_back(&mut quorum_bitmaps, registry_coordinator::get_quorum_bitmap_by_timestamp(serialize_pk_hash, reference_timestamp));
             assert!(bls_apk_registry::validate_signature(serialize_pk_hash, signer_sig, msg_hash), ESIGNATURE_VALIDATE_INVALID);
+        
         };
 
         let withdrawal_delay = withdrawal::minimum_withdrawal_delay();
         
-        for (i in 0..(quorum_length - 1)) {
+        for (i in 0..(quorum_length)) {
             // TODO: registryCoordinator.quorumUpdateBlockNumber
 
             let quorum_number = *vector::borrow(&quorum_numbers, i);
@@ -105,7 +106,7 @@ module oracle::bls_sig_checker{
             vector::push_back(&mut signed_stake_for_quorum, 0);
 
             let signer_quorum_index: u64 = 0;
-            for (j in 0..(signer_pubkeys_length - 1)) {
+            for (j in 0..(signer_pubkeys_length)) {
                 let quorum_bitmap = *vector::borrow(&quorum_bitmaps, j);
                 if (1 == (quorum_bitmap >> quorum_number) & 1) {
                     let signed_stake = vector::borrow_mut(&mut signed_stake_for_quorum, i);
@@ -119,6 +120,7 @@ module oracle::bls_sig_checker{
                 }
             }
         };
+
         return (signed_stake_for_quorum, total_stake_for_quorum)
     }
 

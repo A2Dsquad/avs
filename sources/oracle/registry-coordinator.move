@@ -202,11 +202,20 @@ module oracle::registry_coordinator{
                 if (operator_bitmap_history_length != 0) {
                     current_bitmap = vector::borrow(smart_table::borrow(&store.operator_bitmap_history, operator_id), operator_bitmap_history_length-1).quorum_bitmap
                 };
-                assert!(1 == (current_bitmap >> quorum_number) & 1, 107);
+                // assert!(1 == ((current_bitmap >> quorum_number) & 1), 107);
+                assert!(false, current_bitmap as u64);
 
                 if (operator_info.operator_status != 1) {
                     continue
                 };
+
+                let store_mut = mut_registry_coordinator_store();
+                let operator_info_mut = smart_table::borrow_mut_with_default(&mut store_mut.operator_bitmap_history, operator_id, vector::empty());
+                vector::push_back(operator_info_mut,  QuorumBitmapUpdate{
+                    update_timestamp: timestamp::now_seconds(),
+                    next_update_timestamp: 0,
+                    quorum_bitmap: current_bitmap,
+                });
 
                 let quorum_to_remove: u256 = stake_registry::update_operator_stake(operator_address, operator_id, vector::singleton(quorum_number));
 
@@ -214,7 +223,7 @@ module oracle::registry_coordinator{
 
                     deregister_operator_internal(operator_address, bitmap_to_vecu8(quorum_to_remove));
                 }
-            }
+            };
         }
     }
 
@@ -373,11 +382,13 @@ module oracle::registry_coordinator{
     #[view]
     public fun get_quorum_bitmap_by_timestamp(operator_id: vector<u8>, timestamp: u64): u256 acquires RegistryCoordinatorStore {
         let store = registry_coordinator_store();
-        let operator_bitmap_history = smart_table::borrow(&store.operator_bitmap_history, operator_id);
+        let operator_bitmap_history = smart_table::borrow_with_default(&store.operator_bitmap_history, operator_id, &vector::empty());
         let operator_bitmap_history_length = vector::length(operator_bitmap_history);
-        for (i in 0..(operator_bitmap_history_length - 1)) {
+        for (i in 0..(operator_bitmap_history_length)) {
             let index = operator_bitmap_history_length - i - 1;
             let update_timestamp = vector::borrow(operator_bitmap_history, i).update_timestamp;
+            assert!(false, update_timestamp);
+                // 1728384438          1728384428
             if (update_timestamp < timestamp) {
                 return vector::borrow(operator_bitmap_history, i).quorum_bitmap
             }

@@ -5,14 +5,14 @@ authors = []
 
 [addresses]
 aptos_framework = "0x1"
-restaking = "0x8148d3baca46128d7b383134e4e6c8400384fd3f500bc630cb0bed38de138e39"
+restaking = "0x73b0111387aec1031a2e9c0d616e39e268b2c0c4a488b7b6b9ab2399dc86a14d"
 deployer1 = "0xc2ada184d31ee09bac3b04abb3d1b87c169301a1ad982955bdc65774a723920b"
-oracle = "0xd786e3eb21e4c9395b3f2a8e40c0e0af746c8239565aa27a19b0a868a063a410"
+oracle = "0xbc0f2cc398b46f77d276c2c80360df750522a4daeae53cf5292d597b9282175c"
 
 [dev-addresses]
 deployer1 = "0xc2ada184d31ee09bac3b04abb3d1b87c169301a1ad982955bdc65774a723920b"
-restaking = "0x8148d3baca46128d7b383134e4e6c8400384fd3f500bc630cb0bed38de138e39"
-oracle = "0xd786e3eb21e4c9395b3f2a8e40c0e0af746c8239565aa27a19b0a868a063a410"
+restaking = "0x73b0111387aec1031a2e9c0d616e39e268b2c0c4a488b7b6b9ab2399dc86a14d"
+oracle = "0xbc0f2cc398b46f77d276c2c80360df750522a4daeae53cf5292d597b9282175c"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
@@ -21,6 +21,6 @@ subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.restaking]
 git = "https://github.com/A2Dsquad/restaking-contracts"
-rev = "7954267c2d2880f8f86c39367cdf8f2409f61e87"
+rev = "54426529eba35077efa0055e725d5e03e565bb9a"
 
 [dev-dependencies]
