@@ -38,9 +38,25 @@ func OperatorCommand(zLogger *zap.Logger) *cobra.Command {
 		CreateOperatorConfig(zLogger), // Example: 'operator create-key'
 		Deregister(zLogger),           // Example: 'operator deregister'
 		InitializeQuorum(zLogger),     // Example: 'operator initialize-quorum'
+		QueryPrice(zLogger),           // Example: 'operator price')
 	)
 
 	return operatorCmd
+}
+
+func QueryPrice(logger *zap.Logger) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "price",
+		Short: "price",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			symbol := args[0]
+			getCMCPrice(symbol)
+			return nil
+		},
+	}
+	cmd.Flags().String(flagAvsOperatorConfig, "config/operator-config.json", "see the example at config/example.json")
+	return cmd
 }
 
 func CreateOperatorConfig(logger *zap.Logger) *cobra.Command {

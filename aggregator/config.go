@@ -13,7 +13,7 @@ import (
 )
 
 type AptosConfig struct {
-	Profiles map[string]Profile `yaml:profiles"`
+	Profiles map[string]Profile `yaml:"profiles"`
 }
 
 type Profile struct {

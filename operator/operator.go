@@ -96,12 +96,11 @@ func (op *Operator) RespondTask(ctx context.Context) error {
 	}
 	// TODO
 	for task := range op.TaskQueue {
-		_ = task.Task["data_request"].(string)
+		denom := task.Task["data_request"].(string)
 
 		taskId := task.Id
 
-		// TODO: get price
-		price := big.NewInt(1)
+		price := big.NewInt(int64(getCMCPrice(denom) * 1000000))
 
 		msghHash, err := GetMsgHash(client, op.avsAddress, taskId, *price)
 		if err != nil {
