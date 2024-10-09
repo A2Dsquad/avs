@@ -202,8 +202,8 @@ module oracle::registry_coordinator{
                 if (operator_bitmap_history_length != 0) {
                     current_bitmap = vector::borrow(smart_table::borrow(&store.operator_bitmap_history, operator_id), operator_bitmap_history_length-1).quorum_bitmap
                 };
-                // assert!(1 == ((current_bitmap >> quorum_number) & 1), 107);
-                assert!(false, current_bitmap as u64);
+
+                assert!(1 == (current_bitmap >> (quorum_number-1)) & 1, 107);
 
                 if (operator_info.operator_status != 1) {
                     continue
@@ -258,10 +258,10 @@ module oracle::registry_coordinator{
         let mut_quorum_count = &mut mut_store.quorum_count;
         *mut_quorum_count = *mut_quorum_count + 1;
 
-        set_operator_set_params_internal(pre_quorum_count + 1, operator_set_params);
-        stake_registry::initialize_quorum(pre_quorum_count + 1, minumum_stake, strategy_params);
-        index_registry::initialize_quorum(pre_quorum_count + 1);
-        bls_apk_registry::initialize_quorum(pre_quorum_count + 1);
+        set_operator_set_params_internal(pre_quorum_count+1, operator_set_params);
+        stake_registry::initialize_quorum(pre_quorum_count+1, minumum_stake, strategy_params);
+        index_registry::initialize_quorum(pre_quorum_count+1);
+        bls_apk_registry::initialize_quorum(pre_quorum_count+1);
     }
 
     public fun set_operator_set_params(quorum_number: u8, operator_set_params: OperatorSetParam) acquires RegistryCoordinatorStore {
@@ -386,15 +386,21 @@ module oracle::registry_coordinator{
         let operator_bitmap_history_length = vector::length(operator_bitmap_history);
         for (i in 0..(operator_bitmap_history_length)) {
             let index = operator_bitmap_history_length - i - 1;
-            let update_timestamp = vector::borrow(operator_bitmap_history, i).update_timestamp;
-            assert!(false, update_timestamp);
-                // 1728384438          1728384428
+            let update_timestamp = vector::borrow(operator_bitmap_history, index).update_timestamp;
             if (update_timestamp < timestamp) {
-                return vector::borrow(operator_bitmap_history, i).quorum_bitmap
+                return vector::borrow(operator_bitmap_history, index).quorum_bitmap
             }
         };
         assert!(false, 302);
         return 0
+    }
+
+    #[view]
+    public fun get_operator_bitmap_history_length(operator_id: vector<u8>): u64 acquires RegistryCoordinatorStore {
+        let store = registry_coordinator_store();
+        let operator_bitmap_history = smart_table::borrow_with_default(&store.operator_bitmap_history, operator_id, &vector::empty());
+        let operator_bitmap_history_length = vector::length(operator_bitmap_history);
+        return operator_bitmap_history_length
     }
 
     #[view]

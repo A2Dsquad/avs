@@ -52,7 +52,7 @@ func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config O
 		}
 
 		quorumNumbers := quorumCount
-
+		fmt.Println("quorumNumbers:", quorumNumbers)
 		// Register Operator
 		// ignore error here because panic all the time
 		var priv crypto.BlsPrivateKey

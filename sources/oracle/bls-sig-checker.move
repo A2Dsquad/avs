@@ -93,7 +93,7 @@ module oracle::bls_sig_checker{
         };
 
         let withdrawal_delay = withdrawal::minimum_withdrawal_delay();
-        
+
         for (i in 0..(quorum_length)) {
             // TODO: registryCoordinator.quorumUpdateBlockNumber
 
@@ -108,7 +108,7 @@ module oracle::bls_sig_checker{
             let signer_quorum_index: u64 = 0;
             for (j in 0..(signer_pubkeys_length)) {
                 let quorum_bitmap = *vector::borrow(&quorum_bitmaps, j);
-                if (1 == (quorum_bitmap >> quorum_number) & 1) {
+                if (1 == (quorum_bitmap >>( quorum_number - 1)) & 1) {
                     let signed_stake = vector::borrow_mut(&mut signed_stake_for_quorum, i);
                     let operator_id = vector::borrow(&mut pubkey_hashes, j);
                     *signed_stake = *signed_stake + stake_registry::get_stake_at_timestamp(

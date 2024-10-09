@@ -209,6 +209,7 @@ module oracle::service_manager{
         task_state.responded = true;
         let signed_stake = *vector::borrow(&signed_stake_for_quorum, 0);
         let total_stake = *vector::borrow(&total_stake_for_quorum, 0);
+        
         assert!((signed_stake * THRESHOLD_DENOMINATOR) >= (total_stake * QUORUM_THRESHOLD_PERCENTAGE), ETHRESHOLD_NOT_MEET);
        
         let (final_reponse, slash_indices) = get_final_reponse(responses);
