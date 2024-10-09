@@ -44,6 +44,7 @@ module oracle::registry_coordinator{
         quorum_count: u8,
         quorum_params: SmartTable<u8, OperatorSetParam>,
         operator_infos: SmartTable<address, OperatorInfo>,
+        operator_addresses: SmartTable<vector<u8>, address>,
         operator_bitmap: SmartTable<vector<u8>, u256>,
         operator_bitmap_history: SmartTable<vector<u8>, vector<QuorumBitmapUpdate>>,
     }
@@ -83,6 +84,7 @@ module oracle::registry_coordinator{
             quorum_count: 0,
             quorum_params: smart_table::new(),
             operator_infos: smart_table::new(),
+            operator_addresses: smart_table::new(),
             operator_bitmap: smart_table::new(),
             operator_bitmap_history: smart_table::new(),
         })
@@ -129,7 +131,9 @@ module oracle::registry_coordinator{
             operator_id: operator_id,
             operator_status: 0
         });
-        
+        assert!(!smart_table::contains(&mut_store.operator_addresses, operator_id), 1111);
+        smart_table::add(&mut mut_store.operator_addresses, operator_id, operator_address);
+
         if (mut_operator_info.operator_status != 1) {
             mut_operator_info.operator_status = 1;
             // TODO: 
@@ -368,6 +372,12 @@ module oracle::registry_coordinator{
     public fun get_operator_id(operator: address): vector<u8> acquires RegistryCoordinatorStore {
         let store = registry_coordinator_store();
         smart_table::borrow(&store.operator_infos, operator).operator_id
+    }
+
+    #[view]
+    public fun get_operator_address(operator_id: vector<u8>): address acquires RegistryCoordinatorStore {
+        let store = registry_coordinator_store();
+        *smart_table::borrow(&store.operator_addresses, operator_id)
     }
 
     #[view]
