@@ -55,6 +55,14 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 		}
 	}()
 
+	go func() {
+		agg.logger.Info("Chore process started...")
+		err := agg.DoChore(ctx)
+		if err != nil {
+			agg.logger.Fatal("Error do chore", zap.Any("err", err))
+		}
+	}()
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -114,6 +122,8 @@ func (agg *Aggregator) QueueTask(ctx context.Context, avs aptos.AccountAddress, 
 
 	return nil
 }
+
+
 
 func LoadTaskById(client *aptos.Client, contract aptos.AccountAddress, taskId uint64) (map[string]interface{}, error) {
 	taskIdBcs, err := bcs.SerializeU64(taskId)

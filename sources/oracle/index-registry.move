@@ -251,6 +251,7 @@ module oracle::index_registry{
         let latest_update = vector::borrow(count_history, count_history_length - 1);
         latest_update
     }
+
     inline fun operator_history_mut(quorum_number: u8, operator_count: u32): &mut vector<OperatorUpdate> acquires IndexRegistryStore {
         let store_mut = index_registry_store_mut();
         // let update_history = smart_table::borrow_mut(&mut store_mut.update_history, quorum_number);
@@ -264,7 +265,7 @@ module oracle::index_registry{
         let operator_history = smart_table::borrow(smart_table::borrow(&store.update_history, quorum_number), operator_count);
         operator_history
     }
-
+    
     inline fun set_operator_index(quorum_number: u8, operator_id: vector<u8>, index: u32) acquires IndexRegistryStore {
         let store = index_registry_store_mut();
         let operator_index = smart_table::borrow_mut(&mut store.operator_index, quorum_number);
@@ -275,6 +276,45 @@ module oracle::index_registry{
         let operator_index = smart_table::borrow(&index_registry_store().operator_index, quorum_number);
         let index = *smart_table::borrow(operator_index, operator_id);
         index
+    }
+
+    #[view]
+    public fun get_operator_list_at_timestamp(quorum_number: u8, ref_timestamp: u64): vector<vector<u8>> acquires IndexRegistryStore{
+        let operator_count = operator_count_at_timestamp(quorum_number, ref_timestamp);
+        let operator_list = vector::empty();
+        for (i in 0..operator_count) {
+            let operator_id = operator_id_for_index_at_timestamp(quorum_number, (i as u32), ref_timestamp);
+            assert!(operator_id != vector::empty(), 402);
+            vector::push_back(&mut operator_list, operator_id);
+        };
+        return operator_list
+    }
+
+    fun operator_id_for_index_at_timestamp(quorum_number: u8, index: u32, ref_timestamp: u64): vector<u8> acquires IndexRegistryStore{
+        let operator_index_update = smart_table::borrow(smart_table::borrow(&index_registry_store().update_history, quorum_number), index);
+        let history_length = vector::length(operator_index_update);
+        for (i in 0..history_length){
+            let index = history_length - i - 1;
+            let index_update = *vector::borrow(operator_index_update, index);
+            if (index_update.timestamp < ref_timestamp) {
+                return index_update.operator_id
+            };
+        };
+        return vector::empty()
+    }
+
+    fun operator_count_at_timestamp(quorum_number: u8, ref_timestamp: u64): u32 acquires IndexRegistryStore{
+        let count_history = smart_table::borrow(&index_registry_store().count_history, quorum_number);
+        let history_length = vector::length(count_history);
+        for (i in 0..history_length){
+            let index = history_length - i - 1;
+            let quorum_update = *vector::borrow(count_history, index);
+            if (quorum_update.timestamp < ref_timestamp) {
+                return quorum_update.operator_count
+            };
+        };
+        assert!(false, 401);
+        return 0
     }
 
     inline fun index_registry_store(): &IndexRegistryStore  acquires IndexRegistryStore {
