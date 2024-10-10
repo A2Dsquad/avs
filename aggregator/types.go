@@ -59,18 +59,6 @@ func (u *U8Struct) MarshalBCS(ser *bcs.Serializer) {
 	ser.U8(u.Value)
 }
 
-type VecVecAddr struct {
-	Value [][]aptos.AccountAddress
-}
-
-func (v *VecVecAddr) MarshalBCS(ser *bcs.Serializer) {
-	for _, outer := range v.Value {
-		for _, inner := range outer {
-			ser.WriteBytes(inner[:])
-		}
-	}
-}
-
 type VecAddr struct {
 	Value []aptos.AccountAddress
 }
