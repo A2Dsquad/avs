@@ -178,6 +178,6 @@ func extractNetwork(network string) (aptos.NetworkConfig, error) {
 	case "mainnet":
 		return aptos.MainnetConfig, nil
 	default:
-		return aptos.NetworkConfig{}, fmt.Errorf("Choose one of: mainnet, testnet, devnet, localnet")
+		return aptos.NetworkConfig{}, fmt.Errorf("choose one of: mainnet, testnet, devnet, localnet")
 	}
 }

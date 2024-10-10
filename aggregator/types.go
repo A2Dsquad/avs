@@ -24,8 +24,14 @@ type Aggregator struct {
 	AvsAddress        string
 	AggregatorAccount aptos.Account
 	AggregatorConfig  AggregatorConfig
-	TaskQueue         chan map[string]interface{}
+	TaskQueue         chan Task
+	PendingTasks      map[uint64]map[string]interface{}
 	Network           aptos.NetworkConfig
+}
+
+type Task struct {
+	Id   uint64
+	Task map[string]interface{}
 }
 
 type SignedTaskResponse struct {

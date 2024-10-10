@@ -82,7 +82,7 @@ module oracle::service_manager{
         respond_fee_token: Object<Metadata>,
         respond_fee_limit: u64
     }
-    public entry fun initialize() {
+    public entry fun initialize() acquires ServiceManagerConfigs{
         if (is_initialized()) {
             return
         };
@@ -94,6 +94,7 @@ module oracle::service_manager{
         move_to(&service_manager_signer, ServiceManagerConfigs {
             signer_cap,
         });
+        ensure_service_manager_store();
     }
 
     public entry fun create_new_task(

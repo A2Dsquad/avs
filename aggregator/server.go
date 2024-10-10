@@ -83,7 +83,18 @@ func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse
 		return fmt.Errorf("can't decode string: %v", err)
 	}
 
-	signedStake, totalStake, err := CheckSignatures(client, agg.AvsAddress, 1, uint64(1728544933),
+	var timestamp uint64
+	if task, exists := agg.PendingTasks[signedTaskResponse.TaskId]; exists {
+		var timestampStr = task["task_created_timestamp"].(string)
+		timestamp, err = strconv.ParseUint(timestampStr, 10, 64) // base 10, 64-bit size
+		if err != nil {
+			return fmt.Errorf("error converting string to uint64: %v", err)
+		}
+	} else {
+		return fmt.Errorf("task not exist")
+	}
+
+	signedStake, totalStake, err := CheckSignatures(client, agg.AvsAddress, 1, timestamp,
 		[]BytesStruct{{
 			Value: bytesMsgHash,
 		}},
