@@ -174,6 +174,10 @@ func (op *Operator) QueueTask(ctx context.Context, client *aptos.Client, start u
 		if err != nil {
 			return fmt.Errorf("error loading task: %v", err)
 		}
+		responded := task["responded"].(bool)
+		if responded {
+			continue
+		}
 		op.logger.Info("Loaded new task with id:", zap.Any("task id", i))
 		op.TaskQueue <- Task{
 			Id:   i,

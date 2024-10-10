@@ -115,6 +115,10 @@ func (agg *Aggregator) QueueTask(ctx context.Context, avs aptos.AccountAddress, 
 		if err != nil {
 			return fmt.Errorf("error loading task: %v", err)
 		}
+		responded := task["responded"].(bool)
+		if responded {
+			continue
+		}
 		agg.logger.Info("Loaded new task with id: %d", zap.Any("task id", i))
 		fmt.Println("task :", task)
 		agg.TaskQueue <- Task{
