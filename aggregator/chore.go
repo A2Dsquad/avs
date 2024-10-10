@@ -166,12 +166,14 @@ func UpdateOperatorsForQuorum(
 		},
 	}, quorumSerializer)
 
-	addressesBcs, err := bcs.Serialize(&VecVecAddr{
-		Value: addresses,
-	})
-	if err != nil {
-		panic("Failed to serialize addresses:" + err.Error())
+	vecAddrs := []VecAddr{}
+	for _, vecAddress := range addresses {
+		vecAddrs = append(vecAddrs, VecAddr{
+			Value: vecAddress,
+		})
 	}
+	addressesSerializer := &bcs.Serializer{}
+	bcs.SerializeSequence(vecAddrs, addressesSerializer)
 
 	payload := aptos.EntryFunction{
 		Module: aptos.ModuleId{
@@ -181,7 +183,7 @@ func UpdateOperatorsForQuorum(
 		Function: "update_operators_for_quorum",
 		ArgTypes: []aptos.TypeTag{},
 		Args: [][]byte{
-			quorumSerializer.ToBytes(), addressesBcs,
+			quorumSerializer.ToBytes(), addressesSerializer.ToBytes(),
 		},
 	}
 
