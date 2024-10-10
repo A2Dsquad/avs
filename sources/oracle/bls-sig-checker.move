@@ -59,6 +59,7 @@ module oracle::bls_sig_checker{
         oracle_manager::address_exists(string::utf8(BLS_SIG_CHECKER_NAME))
     }
 
+    #[view]
     public fun check_signatures(
         quorum_numbers: vector<u8>, 
         reference_timestamp: u64, 

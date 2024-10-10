@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-const API_KEY = ""
+const API_KEY = "1547eae6-c29f-464a-ac29-e27fe94db841"
 
 func getCMCPrice(symbol string) float64 {
 	client := &http.Client{}
@@ -41,6 +41,7 @@ func getCMCPrice(symbol string) float64 {
 		fmt.Println("Error unmarshal price: ", err)
 		os.Exit(1)
 	}
+	fmt.Println("data: ", res)
 
 	data := res["data"].(map[string]interface{})
 	symbolData := data[symbol].([]interface{})

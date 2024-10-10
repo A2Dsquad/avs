@@ -111,19 +111,17 @@ func (agg *Aggregator) FetchTasks(ctx context.Context) error {
 func (agg *Aggregator) QueueTask(ctx context.Context, avs aptos.AccountAddress, client *aptos.Client, start uint64, end uint64) error {
 	for i := start + 1; i <= end; i++ {
 		task, err := LoadTaskById(client, avs, i)
-		fmt.Println("task:", task)
 		if err != nil {
 			return fmt.Errorf("error loading task: %v", err)
 		}
 		agg.logger.Info("Loaded new task with id: %d", zap.Any("task id", i))
+		fmt.Println("task :", task)
 		agg.TaskQueue <- task
 		agg.logger.Info("Queued new task with id: %d", zap.Any("task id", i))
 	}
 
 	return nil
 }
-
-
 
 func LoadTaskById(client *aptos.Client, contract aptos.AccountAddress, taskId uint64) (map[string]interface{}, error) {
 	taskIdBcs, err := bcs.SerializeU64(taskId)

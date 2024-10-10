@@ -102,7 +102,7 @@ module oracle::registry_coordinator{
     }
 
     // TODO: not done
-    public entry fun registor_operator(operator: &signer,  quorum_numbers: vector<u8>, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>) acquires RegistryCoordinatorStore{
+    public entry fun registor_operator(operator: &signer, quorum_numbers: vector<u8>, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>) acquires RegistryCoordinatorStore{
         let operator_id = get_or_create_operator_id(operator, signature, pubkey, pop);
 
         let (_ , _ , num_operators_per_quorum) = register_operator_internal(operator, operator_id, quorum_numbers);

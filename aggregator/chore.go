@@ -11,6 +11,8 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 )
 
+const ChoreInterval = 1 * time.Minute
+
 func (agg *Aggregator) DoChore(ctx context.Context) error {
 	client, err := aptos.NewClient(agg.Network)
 	if err != nil {
@@ -22,56 +24,61 @@ func (agg *Aggregator) DoChore(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse avs address: %v", err)
 	}
-	// Get quorum count
-	quorumCount, err := QuorumCount(client, avsAddress)
-	if err != nil {
-		return fmt.Errorf("failed to get quorum count: %v", err)
-	}
 
-	var operatorsIdPerQuorum [][]interface{}
-
-	if quorumCount != 0 {
-		for i := 1; i <= int(quorumCount); i++ {
-			operatorList, err := GetOperatorListAtTimestamp(client, avsAddress, uint8(i), uint64(time.Now().Unix()))
-			fmt.Println("test :", err)
-			operatorsIdPerQuorum = append(operatorsIdPerQuorum, operatorList)
+	for {
+		// Get quorum count
+		quorumCount, err := QuorumCount(client, avsAddress)
+		if err != nil {
+			return fmt.Errorf("failed to get quorum count: %v", err)
 		}
-	}
 
-	var operatorAddresses = make([][]aptos.AccountAddress, quorumCount)
-	// Get list operator for each quorum
-	for i, operatorsIds := range operatorsIdPerQuorum {
-		operatorAddresses[i] = make([]aptos.AccountAddress, len(operatorsIds))
-		for j := 0; j < len(operatorsIds); j++ {
-			opId, ok := operatorsIds[j].(string)
-			if !ok {
-				return fmt.Errorf("can not convert operator id to sting")
+		var operatorsIdPerQuorum [][]interface{}
+
+		if quorumCount != 0 {
+			for i := 1; i <= int(quorumCount); i++ {
+				operatorList, err := GetOperatorListAtTimestamp(client, avsAddress, uint8(i), uint64(time.Now().Unix()))
+				if err != nil {
+					return fmt.Errorf("can not get operator list %v", err)
+				}
+				operatorsIdPerQuorum = append(operatorsIdPerQuorum, operatorList)
 			}
-			strimmedId := strings.TrimPrefix(opId, "0x")
-			bytes, err := hex.DecodeString(strimmedId)
-			if err != nil {
-				return err
-			}
-			operatorAddr, err := GetOperatorAddress(client, avsAddress, bytes)
-			if err != nil {
-				return fmt.Errorf("can not get operator address %v", err)
-			}
-			addr := aptos.AccountAddress{}
-			err = addr.ParseStringRelaxed(operatorAddr)
-			if err != nil {
-				return fmt.Errorf("can not ParseStringRelaxed: %v", err)
-			}
-			operatorAddresses[i][j] = addr
 		}
-	}
 
-	// Update quorums
-	err = UpdateOperatorsForQuorum(client, &agg.AggregatorAccount, agg.AvsAddress, quorumCount, operatorAddresses)
-	if err != nil {
-		return fmt.Errorf("can not update operators for quorum: %v", err)
-	}
+		var operatorAddresses = make([][]aptos.AccountAddress, quorumCount)
+		// Get list operator for each quorum
+		for i, operatorsIds := range operatorsIdPerQuorum {
+			operatorAddresses[i] = make([]aptos.AccountAddress, len(operatorsIds))
+			for j := 0; j < len(operatorsIds); j++ {
+				opId, ok := operatorsIds[j].(string)
+				if !ok {
+					return fmt.Errorf("can not convert operator id to sting")
+				}
+				strimmedId := strings.TrimPrefix(opId, "0x")
+				bytes, err := hex.DecodeString(strimmedId)
+				if err != nil {
+					return err
+				}
+				operatorAddr, err := GetOperatorAddress(client, avsAddress, bytes)
+				if err != nil {
+					return fmt.Errorf("can not get operator address %v", err)
+				}
+				addr := aptos.AccountAddress{}
+				err = addr.ParseStringRelaxed(operatorAddr)
+				if err != nil {
+					return fmt.Errorf("can not ParseStringRelaxed: %v", err)
+				}
+				operatorAddresses[i][j] = addr
+			}
+		}
 
-	return nil
+		// Update quorums
+		err = UpdateOperatorsForQuorum(client, &agg.AggregatorAccount, agg.AvsAddress, quorumCount, operatorAddresses)
+		if err != nil {
+			return fmt.Errorf("can not update operators for quorum: %v", err)
+		}
+		agg.logger.Info("Done UpdateOperatorsForQuorum. Next update after 1 min")
+		time.Sleep(ChoreInterval)
+	}
 }
 
 func QuorumCount(client *aptos.Client, contract aptos.AccountAddress) (uint8, error) {
@@ -87,7 +94,7 @@ func QuorumCount(client *aptos.Client, contract aptos.AccountAddress) (uint8, er
 
 	vals, err := client.View(payload)
 	if err != nil {
-		return 0, fmt.Errorf("No quorum found")
+		return 0, fmt.Errorf("no quorum found")
 	}
 	count := vals[0].(float64)
 	return uint8(count), nil
@@ -159,6 +166,7 @@ func UpdateOperatorsForQuorum(
 	if err != nil {
 		panic("Failed to parse address:" + err.Error())
 	}
+
 	quorumSerializer := &bcs.Serializer{}
 	bcs.SerializeSequence([]U8Struct{
 		{
@@ -166,9 +174,15 @@ func UpdateOperatorsForQuorum(
 		},
 	}, quorumSerializer)
 
-	addressesBcs, err := bcs.Serialize(&VecVecAddr{
-		Value: addresses,
-	})
+	vecAddrs := []VecAddr{}
+	for _, vecAddress := range addresses {
+		vecAddrs = append(vecAddrs, VecAddr{
+			Value: vecAddress,
+		})
+	}
+	addressesSerializer := &bcs.Serializer{}
+	bcs.SerializeSequence(vecAddrs, addressesSerializer)
+
 	if err != nil {
 		panic("Failed to serialize addresses:" + err.Error())
 	}
@@ -181,7 +195,7 @@ func UpdateOperatorsForQuorum(
 		Function: "update_operators_for_quorum",
 		ArgTypes: []aptos.TypeTag{},
 		Args: [][]byte{
-			quorumSerializer.ToBytes(), addressesBcs,
+			quorumSerializer.ToBytes(), addressesSerializer.ToBytes(),
 		},
 	}
 

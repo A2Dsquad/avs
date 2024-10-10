@@ -3,7 +3,7 @@ package aggregator
 import (
 	"math/big"
 
-	"github.com/aptos-labs/aptos-go-sdk"
+	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"go.uber.org/zap"
 )
@@ -66,9 +66,17 @@ type VecVecAddr struct {
 func (v *VecVecAddr) MarshalBCS(ser *bcs.Serializer) {
 	for _, outer := range v.Value {
 		for _, inner := range outer {
-			inner.MarshalBCS(ser)
+			ser.WriteBytes(inner[:])
 		}
 	}
+}
+
+type VecAddr struct {
+	Value []aptos.AccountAddress
+}
+
+func (v *VecAddr) MarshalBCS(ser *bcs.Serializer) {
+	bcs.SerializeSequence(v.Value, ser)
 }
 
 type Addr struct {
