@@ -60,6 +60,35 @@ func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse
 		return fmt.Errorf("failed to create aptos client: %v", err)
 	}
 
+	var timestamp uint64
+	task, exists := agg.PendingTasks[signedTaskResponse.TaskId]
+	if exists {
+		var timestampStr = task.State["task_created_timestamp"].(string)
+		timestamp, err = strconv.ParseUint(timestampStr, 10, 64) // base 10, 64-bit size
+		if err != nil {
+			return fmt.Errorf("error converting string to uint64: %v", err)
+		}
+	} else {
+		return fmt.Errorf("task not exist")
+	}
+
+	task.Responses = append(task.Responses, signedTaskResponse)
+	resps := []U128Struct{}
+	pks := []BytesStruct{}
+	sigs := []BytesStruct{}
+	msgs := []BytesStruct{}
+	for _, response := range task.Responses {
+		pks = append(pks, BytesStruct{
+			Value: response.Pubkey,
+		})
+		sigs = append(sigs, BytesStruct{
+			Value: response.Signature,
+		})
+		resps = append(resps, U128Struct{
+			Value: response.Response,
+		})
+	}
+
 	// GetMsgHashes
 	msgHashes, err := GetMsgHashes(client, agg.AvsAddress, signedTaskResponse.TaskId,
 		[]U128Struct{{
@@ -70,40 +99,27 @@ func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse
 		}},
 	)
 	if err != nil {
-		return fmt.Errorf("lmaaaooo: %v", err)
+		return fmt.Errorf("failed to get msg hashes: %v", err)
 	}
-
-	hexStr, ok := msgHashes[0].(string)
-	if !ok {
-		return fmt.Errorf("data is not a string")
-	}
-	trimmedHexStr := strings.TrimPrefix(hexStr, "0x")
-	bytesMsgHash, err := hex.DecodeString(trimmedHexStr)
-	if err != nil {
-		return fmt.Errorf("can't decode string: %v", err)
-	}
-
-	var timestamp uint64
-	if task, exists := agg.PendingTasks[signedTaskResponse.TaskId]; exists {
-		var timestampStr = task["task_created_timestamp"].(string)
-		timestamp, err = strconv.ParseUint(timestampStr, 10, 64) // base 10, 64-bit size
-		if err != nil {
-			return fmt.Errorf("error converting string to uint64: %v", err)
+	for _, hash := range msgHashes {
+		hexStr, ok := hash.(string)
+		if !ok {
+			return fmt.Errorf("data is not a string")
 		}
-	} else {
-		return fmt.Errorf("task not exist")
+		trimmedHexStr := strings.TrimPrefix(hexStr, "0x")
+		bytesMsgHash, err := hex.DecodeString(trimmedHexStr)
+		if err != nil {
+			return fmt.Errorf("can't decode string: %v", err)
+		}
+		msgs = append(msgs, BytesStruct{
+			Value: bytesMsgHash,
+		})
 	}
 
 	signedStake, totalStake, err := CheckSignatures(client, agg.AvsAddress, 1, timestamp,
-		[]BytesStruct{{
-			Value: bytesMsgHash,
-		}},
-		[]BytesStruct{{
-			Value: signedTaskResponse.Pubkey,
-		}},
-		[]BytesStruct{{
-			Value: signedTaskResponse.Signature,
-		}},
+		msgs,
+		pks,
+		sigs,
 	)
 	if err != nil {
 		return fmt.Errorf("can't check signature: %v", err)
@@ -112,16 +128,11 @@ func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse
 	// (signed_stake * THRESHOLD_DENOMINATOR) >= (total_stake * QUORUM_THRESHOLD_PERCENTAGE)
 	if signedStake*THRESHOLD_DENOMINATOR >= totalStake*QUORUM_THRESHOLD_PERCENTAGE {
 		agg.logger.Info("Quorum for task has reached. Responding...", zap.Any("task_id", signedTaskResponse.TaskId))
+
 		err = RespondToAvs(client, &agg.AggregatorAccount, agg.AvsAddress, signedTaskResponse.TaskId,
-			[]BytesStruct{{
-				Value: signedTaskResponse.Signature,
-			}},
-			[]BytesStruct{{
-				Value: signedTaskResponse.Pubkey,
-			}},
-			[]U128Struct{{
-				Value: signedTaskResponse.Response,
-			}},
+			sigs,
+			pks,
+			resps,
 		)
 
 		if err != nil {
@@ -129,8 +140,9 @@ func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse
 		}
 	} else {
 		agg.logger.Info("Quorum for task has not reached. Waiting for other operators", zap.Any("task_id", signedTaskResponse.TaskId))
-		// TODO: save pub and sig for this task for later aggregate
 	}
+
+	agg.PendingTasks[signedTaskResponse.TaskId] = task
 	return nil
 }
 

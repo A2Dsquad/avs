@@ -25,8 +25,13 @@ type Aggregator struct {
 	AggregatorAccount aptos.Account
 	AggregatorConfig  AggregatorConfig
 	TaskQueue         chan Task
-	PendingTasks      map[uint64]map[string]interface{}
+	PendingTasks      map[uint64]TaskInfo
 	Network           aptos.NetworkConfig
+}
+
+type TaskInfo struct {
+	State     map[string]interface{}
+	Responses []SignedTaskResponse
 }
 
 type Task struct {

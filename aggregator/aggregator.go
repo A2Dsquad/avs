@@ -29,7 +29,7 @@ func NewAggregator(aggregatorConfig AggregatorConfig, logger *zap.Logger, networ
 		AggregatorAccount: *aggegator_account,
 		AggregatorConfig:  aggregatorConfig,
 		TaskQueue:         make(chan Task, taskQueueSize),
-		PendingTasks:      make(map[uint64]map[string]interface{}),
+		PendingTasks:      make(map[uint64]TaskInfo),
 		Network:           network,
 	}
 	return agg, nil
@@ -126,7 +126,10 @@ func (agg *Aggregator) QueueTask(ctx context.Context, avs aptos.AccountAddress, 
 			Task: task,
 		}
 		if _, exists := agg.PendingTasks[i]; !exists {
-			agg.PendingTasks[i] = task
+			agg.PendingTasks[i] = TaskInfo{
+				State:     task,
+				Responses: make([]SignedTaskResponse, 0),
+			}
 		}
 		agg.logger.Info("Queued new task with id: %d", zap.Any("task id", i))
 	}
