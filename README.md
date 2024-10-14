@@ -370,11 +370,11 @@ Called by aggregator to resolve a task.
  
 `task_id`: the id of the task to respond to
 
-`responses`: 
+`responses`: the price that signed operators respond to aggregator
 
-`signer_pubkeys`: 
+`signer_pubkeys`: pubkey of operator that ulfill the task, the hash of it will be used as operator id
 
-`signer_sigs`: 
+`signer_sigs`: signature to prove that the price is signed by operator
 
 ### View functions
 
