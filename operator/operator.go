@@ -21,7 +21,7 @@ import (
 
 const (
 	MaxRetries                        = 100
-	RetryInterval                     = 1 * time.Second
+	RetryInterval                     = 2 * time.Second
 	BlockInterval              uint64 = 1000
 	PollLatestBatchInterval           = 5 * time.Second
 	RemoveBatchFromSetInterval        = 5 * time.Minute
@@ -106,7 +106,6 @@ func (op *Operator) RespondTask(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to GetMsgHash: %v", err)
 		}
-		fmt.Println("msghHash :", msghHash)
 
 		trimmedMsgHash := strings.TrimPrefix(msghHash, "0x")
 		bytesMsgHash, err := hex.DecodeString(trimmedMsgHash)

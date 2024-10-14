@@ -7,7 +7,8 @@ import (
 	aptos "github.com/aptos-labs/aptos-go-sdk"
 )
 
-const FAContract = "0x6ccedcbb69b239fc49ea7986dfcb12da53119591df763d74e45fc5961d04ba7e"
+// TODO
+const FAContract = "0x24f4512994b08ea6f6914a776670d0e06541b2e72ffcbf32a279be4c8eb4e845"
 
 func GetMetadata(
 	client *aptos.Client,

@@ -2,6 +2,7 @@ package aggregator
 
 import (
 	"math/big"
+	"sync"
 
 	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
@@ -26,6 +27,7 @@ type Aggregator struct {
 	AggregatorConfig  AggregatorConfig
 	TaskQueue         chan Task
 	PendingTasks      map[uint64]TaskInfo
+	TaskMutex         sync.Mutex
 	Network           aptos.NetworkConfig
 }
 

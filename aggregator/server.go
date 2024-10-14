@@ -55,29 +55,49 @@ func (agg *Aggregator) RespondTask(signedTaskResponse SignedTaskResponse, reply 
 }
 
 func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse) error {
+	fmt.Println("test")
 	client, err := aptos.NewClient(agg.Network)
 	if err != nil {
 		return fmt.Errorf("failed to create aptos client: %v", err)
 	}
 
 	var timestamp uint64
-	task, exists := agg.PendingTasks[signedTaskResponse.TaskId]
+	agg.TaskMutex.Lock()
+	taskInfo, exists := agg.PendingTasks[signedTaskResponse.TaskId]
 	if exists {
-		var timestampStr = task.State["task_created_timestamp"].(string)
+		var timestampStr = taskInfo.State["task_created_timestamp"].(string)
 		timestamp, err = strconv.ParseUint(timestampStr, 10, 64) // base 10, 64-bit size
 		if err != nil {
 			return fmt.Errorf("error converting string to uint64: %v", err)
 		}
 	} else {
-		return fmt.Errorf("task not exist")
+		avs := aptos.AccountAddress{}
+		err := avs.ParseStringRelaxed(agg.AvsAddress)
+		if err != nil {
+			return fmt.Errorf("error parsing avs address while loading task: %v", err)
+		}
+		task, err := LoadTaskById(client, avs, signedTaskResponse.TaskId)
+		if err != nil {
+			return fmt.Errorf("error loading task: %v", err)
+		}
+		var timestampStr = task["task_created_timestamp"].(string)
+		timestamp, err = strconv.ParseUint(timestampStr, 10, 64) // base 10, 64-bit size
+		if err != nil {
+			return fmt.Errorf("error converting string to uint64: %v", err)
+		}
+		taskInfo = TaskInfo{
+			State:     task,
+			Responses: make([]SignedTaskResponse, 0),
+		}
+		agg.PendingTasks[signedTaskResponse.TaskId] = taskInfo
 	}
 
-	task.Responses = append(task.Responses, signedTaskResponse)
+	taskInfo.Responses = append(taskInfo.Responses, signedTaskResponse)
 	resps := []U128Struct{}
 	pks := []BytesStruct{}
 	sigs := []BytesStruct{}
 	msgs := []BytesStruct{}
-	for _, response := range task.Responses {
+	for _, response := range taskInfo.Responses {
 		pks = append(pks, BytesStruct{
 			Value: response.Pubkey,
 		})
@@ -91,12 +111,8 @@ func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse
 
 	// GetMsgHashes
 	msgHashes, err := GetMsgHashes(client, agg.AvsAddress, signedTaskResponse.TaskId,
-		[]U128Struct{{
-			Value: signedTaskResponse.Response,
-		}},
-		[]BytesStruct{{
-			Value: signedTaskResponse.Pubkey,
-		}},
+		resps,
+		pks,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get msg hashes: %v", err)
@@ -125,6 +141,8 @@ func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse
 		return fmt.Errorf("can't check signature: %v", err)
 	}
 
+	fmt.Println("signedStake: ", signedStake)
+	fmt.Println("totalStake: ", totalStake)
 	// (signed_stake * THRESHOLD_DENOMINATOR) >= (total_stake * QUORUM_THRESHOLD_PERCENTAGE)
 	if signedStake*THRESHOLD_DENOMINATOR >= totalStake*QUORUM_THRESHOLD_PERCENTAGE {
 		agg.logger.Info("Quorum for task has reached. Responding...", zap.Any("task_id", signedTaskResponse.TaskId))
@@ -139,10 +157,11 @@ func (agg *Aggregator) processTaskResponse(signedTaskResponse SignedTaskResponse
 			return fmt.Errorf("failed to respond task: %v", err)
 		}
 	} else {
-		agg.logger.Info("Quorum for task has not reached. Waiting for other operators", zap.Any("task_id", signedTaskResponse.TaskId))
+		agg.logger.Info("Quorum for task has not reached. Waiting for other operators", zap.Any("task_id", signedTaskResponse.TaskId), zap.Any("Consensus", float64(signedStake*THRESHOLD_DENOMINATOR)/float64(totalStake)))
 	}
 
-	agg.PendingTasks[signedTaskResponse.TaskId] = task
+	agg.PendingTasks[signedTaskResponse.TaskId] = taskInfo
+	agg.TaskMutex.Unlock()
 	return nil
 }
 

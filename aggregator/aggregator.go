@@ -17,10 +17,10 @@ import (
 
 const taskQueueSize = 100
 
-func NewAggregator(aggregatorConfig AggregatorConfig, logger *zap.Logger, network aptos.NetworkConfig) (Aggregator, error) {
+func NewAggregator(aggregatorConfig AggregatorConfig, logger *zap.Logger, network aptos.NetworkConfig) (*Aggregator, error) {
 	aggegator_account, err := SignerFromConfig(aggregatorConfig.AccountConfig.AccountPath, aggregatorConfig.AccountConfig.Profile)
 	if err != nil {
-		return Aggregator{}, errors.Wrap(err, "Failed to create aggregator account")
+		return &Aggregator{}, errors.Wrap(err, "Failed to create aggregator account")
 	}
 
 	agg := Aggregator{
@@ -30,9 +30,10 @@ func NewAggregator(aggregatorConfig AggregatorConfig, logger *zap.Logger, networ
 		AggregatorConfig:  aggregatorConfig,
 		TaskQueue:         make(chan Task, taskQueueSize),
 		PendingTasks:      make(map[uint64]TaskInfo),
-		Network:           network,
+
+		Network: network,
 	}
-	return agg, nil
+	return &agg, nil
 }
 
 func (agg *Aggregator) Start(ctx context.Context) error {
@@ -106,6 +107,7 @@ func (agg *Aggregator) FetchTasks(ctx context.Context) error {
 				return fmt.Errorf("error queuing task: %v", err)
 			}
 		}
+		time.Sleep(30 * time.Second)
 	}
 }
 
@@ -125,12 +127,14 @@ func (agg *Aggregator) QueueTask(ctx context.Context, avs aptos.AccountAddress, 
 			Id:   i,
 			Task: task,
 		}
+		agg.TaskMutex.Lock()
 		if _, exists := agg.PendingTasks[i]; !exists {
 			agg.PendingTasks[i] = TaskInfo{
 				State:     task,
 				Responses: make([]SignedTaskResponse, 0),
 			}
 		}
+		agg.TaskMutex.Unlock()
 		agg.logger.Info("Queued new task with id: %d", zap.Any("task id", i))
 	}
 
