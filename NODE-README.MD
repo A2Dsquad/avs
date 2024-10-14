@@ -36,11 +36,11 @@ Step 3: Configure the Operator
 ./build/avs operator config {avs address} {Aggregator rpc}
 ```
 
-This will create a `config.json` file in `config` folder. You can see the example in `config/example.json`.
+This will create a `operator-config.json` file in `config` folder. You can see the example in `config/example.json`.
 
 Step 4: Start Operator
 ```bash
 ./build/avs operator start
 ```
 
-Your operator is now on and running!
+Your operator is now up and running!

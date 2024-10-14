@@ -233,7 +233,8 @@ module oracle::registry_coordinator{
 
 
     // TODO: only owner
-    public entry fun create_quorum(max_operator_count: u32 , minumum_stake: u128, strategies: vector<address>, multipliers: vector<u128>) acquires RegistryCoordinatorConfigs, RegistryCoordinatorStore {
+    public entry fun create_quorum(owner:&signer, max_operator_count: u32 , minumum_stake: u128, strategies: vector<address>, multipliers: vector<u128>) acquires RegistryCoordinatorConfigs, RegistryCoordinatorStore {
+        oracle_manager::only_owner(signer::address_of(owner));
         ensure_registry_coordinator_store();
         let operator_set_param = OperatorSetParam {
             max_operator_count
@@ -268,7 +269,12 @@ module oracle::registry_coordinator{
         bls_apk_registry::initialize_quorum(pre_quorum_count+1);
     }
 
-    public fun set_operator_set_params(quorum_number: u8, operator_set_params: OperatorSetParam) acquires RegistryCoordinatorStore {
+    public entry fun set_operator_set_params(owner: &signer, quorum_number: u8, max_operator_count: u32) acquires RegistryCoordinatorStore {
+        oracle_manager::only_owner(signer::address_of(owner));
+        let operator_set_params = OperatorSetParam{
+            max_operator_count,
+        };
+
         set_operator_set_params_internal(quorum_number, operator_set_params);
     }
 

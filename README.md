@@ -55,11 +55,15 @@
 ```move
     struct ServiceManagerStore has key {
         tasks_state: SmartTable<vector<u8>, TaskState>,
+        tasks_creator: SmartTable<u64, address>,
+        task_count: u64,
     }
 
     struct TaskState has store, drop, copy {
         task_created_timestamp: u64,
         responded: bool,
+        response: u128,
+        data_request: String,
         respond_fee_token: Object<Metadata>,
         respond_fee_limit: u64
     }
@@ -335,7 +339,6 @@ Updates an existing quorum's configuration. Can only called by owner of the AVS.
         creator: &signer,
         token: Object<Metadata>,
         amount: u64,
-        task_id: vector<u8>,
         data_request: String,
         respond_fee_limit: u64
     ) acquires ServiceManagerConfigs, ServiceManagerStore, TaskCreatorBalanceStore
@@ -356,15 +359,10 @@ Called by anyone, mainly AVS consumer to have a new task created.
 ```move
     public entry fun respond_to_task(
         aggregator: &signer,
-        task_id: vector<u8>,
-        sender: address,
-        nonsigner_pubkeys: vector<vector<u8>>,
-        quorum_aggr_pks: vector<vector<u8>>,
-        quorum_apk_indices: vector<u64>,
-        total_stake_indices: vector<u64>,
-        non_signer_stake_indices: vector<vector<u64>>,
-        aggr_pks: vector<vector<u8>>,
-        aggr_sig: vector<vector<u8>>
+        task_id: u64,
+        responses: vector<u128>,
+        signer_pubkeys: vector<vector<u8>>,
+        signer_sigs: vector<vector<u8>>,
     ) acquires ServiceManagerStore
 ```
 
@@ -372,21 +370,11 @@ Called by aggregator to resolve a task.
  
 `task_id`: the id of the task to respond to
 
-`sender`: the address of the task creator
+`responses`: 
 
-`nonsigner_pubkeys`: pubkey of operator that does not fulfill the task, the hash of it will be used as operator id
+`signer_pubkeys`: 
 
-`quorum_aggr_pks`: aggregate of all operator pubkeys base on quorum number
-
-`quorum_apk_indices`: index of quorum_aggr_pks, used to query aggr_pk_hash in bls_apk_registry
-
-`total_stake_indices`: index of total stake,  used to query total_stake_at_timestamp in stake_registry
-
-`non_signer_stake_indices`: index of non-signer stake, used to query stake_at_timestamp_and_index
-
-`aggr_pks`: aggregate of signed operator pubkeys, used to validate signatures meets quorum
-
-`aggr_sig`: aggregate of signed operator signature, used to validate signatures meets quorum
+`signer_sigs`: 
 
 ### View functions
 
@@ -396,7 +384,11 @@ public fun get_operator_id(operator: address): vector<u8> acquires RegistryCoord
 
 public fun get_operator_status(operator: address): u8 acquires RegistryCoordinatorStore
 
+public fun get_operator_address(operator_id: vector<u8>): address acquires RegistryCoordinatorStore
+
 public fun get_quorum_bitmap_by_timestamp(operator_id: vector<u8>, timestamp: u64): u256 acquires RegistryCoordinatorStore
+
+public fun get_operator_bitmap_history_length(operator_id: vector<u8>): u64 acquires RegistryCoordinatorStore
 
 public fun get_current_quorum_bitmap(operator_id: vector<u8>): u256 acquires RegistryCoordinatorStore
 
@@ -419,4 +411,19 @@ public fun count_history(quorum_number: u8): vector<QuorumUpdate> acquires Index
 public fun get_operator_id(operator: address): vector<u8> acquires BLSApkRegistryStore
 
 public fun get_aggr_pk_hash_at_timestamp(quorum_number: u8, timestamp: u64, index: u64): vector<u8> acquires BLSApkRegistryStore
+
+public fun get_operator_pk(operator: address): PublicKeyWithPoP acquires BLSApkRegistryStore
+
+public fun validate_signature(operator_id: vector<u8>, signature: vector<u8>, msg: vector<u8>): bool acquires BLSApkRegistryStore
+
+public fun check_signatures(quorum_numbers: vector<u8>, reference_timestamp: u64, msg_hashes: vector<vector<u8>>, signer_pubkeys: vector<vector<u8>>, signer_sigs: vector<vector<u8>>):(vector<u128>, vector<u128>)
+
+public fun task_count(): u64  acquires ServiceManagerStore
+
+public fun get_msg_hash(task_id: u64, response: u128): vector<u8> acquires ServiceManagerStore
+
+public fun get_msg_hashes(task_id: u64, responses: vector<u128>, signer_pubkeys: vector<vector<u8>>): vector<vector<u8>> acquires ServiceManagerStore
+
+public fun task_by_id(task_id: u64): TaskState acquires ServiceManagerStore
+
 ```
