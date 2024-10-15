@@ -1,4 +1,4 @@
-module oracle::bls_sig_checker{
+module avs::bls_sig_checker{
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::event;
     use aptos_framework::timestamp;
@@ -12,11 +12,11 @@ module oracle::bls_sig_checker{
     use std::signer;
 
     use restaking::withdrawal;
-    use oracle::bls_apk_registry; 
-    use oracle::math_utils;
-    use oracle::oracle_manager; 
-    use oracle::stake_registry;
-    use oracle::registry_coordinator;
+    use avs::bls_apk_registry; 
+    use avs::math_utils;
+    use avs::avs_manager; 
+    use avs::stake_registry;
+    use avs::registry_coordinator;
 
     const BLS_SIG_CHECKER_NAME: vector<u8> = b"BLS_SIG_CHECKER_NAME";
 
@@ -40,9 +40,9 @@ module oracle::bls_sig_checker{
         };
 
         // derive a resource account from signer to manage User share Account
-        let oracle_signer = &oracle_manager::get_signer();
-        let (bls_sig_checker_signer, signer_cap) = account::create_resource_account(oracle_signer, BLS_SIG_CHECKER_NAME);
-        oracle_manager::add_address(string::utf8(BLS_SIG_CHECKER_NAME), signer::address_of(&bls_sig_checker_signer));
+        let avs_signer = &avs_manager::get_signer();
+        let (bls_sig_checker_signer, signer_cap) = account::create_resource_account(avs_signer, BLS_SIG_CHECKER_NAME);
+        avs_manager::add_address(string::utf8(BLS_SIG_CHECKER_NAME), signer::address_of(&bls_sig_checker_signer));
         move_to(&bls_sig_checker_signer, BLSSigCheckerConfig {
             signer_cap,
         });
@@ -51,12 +51,12 @@ module oracle::bls_sig_checker{
     #[view]
     /// Return the address of the resource account that stores pool manager configs.
     public fun bls_sig_checker_address(): address {
-        oracle_manager::get_address(string::utf8(BLS_SIG_CHECKER_NAME))
+        avs_manager::get_address(string::utf8(BLS_SIG_CHECKER_NAME))
     }
 
     #[view]
     public fun is_initialized(): bool{
-        oracle_manager::address_exists(string::utf8(BLS_SIG_CHECKER_NAME))
+        avs_manager::address_exists(string::utf8(BLS_SIG_CHECKER_NAME))
     }
 
     #[view]

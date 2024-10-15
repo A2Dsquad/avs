@@ -1,9 +1,9 @@
 package operator
 
 import (
+	"avs/aggregator"
 	"fmt"
 	"net/rpc"
-	"oracle-avs/aggregator"
 	"time"
 
 	"github.com/pkg/errors"

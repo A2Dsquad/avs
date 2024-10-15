@@ -1,4 +1,4 @@
-module oracle::stake_registry{
+module avs::stake_registry{
     use aptos_framework::event;
     use aptos_framework::fungible_asset::{
     Self, Metadata,
@@ -10,8 +10,8 @@ module oracle::stake_registry{
 
     use restaking::staker_manager;
 
-    use oracle::oracle_manager;
-    use oracle::service_manager_base;
+    use avs::avs_manager;
+    use avs::service_manager_base;
 
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::smart_vector::{Self, SmartVector};
@@ -24,7 +24,7 @@ module oracle::stake_registry{
     use std::vector;
     use std::signer;
 
-    friend oracle::registry_coordinator;
+    friend avs::registry_coordinator;
 
     const WEIGHTING_DIVISOR: u128 = 1_000_000_000; // 1e9
 
@@ -75,9 +75,9 @@ module oracle::stake_registry{
         };
 
         // derive a resource account from signer to manage User share Account
-        let staking_signer = &oracle_manager::get_signer();
+        let staking_signer = &avs_manager::get_signer();
         let (stake_registry_signer, signer_cap) = account::create_resource_account(staking_signer, STAKE_REGISTRY_NAME);
-        oracle_manager::add_address(string::utf8(STAKE_REGISTRY_NAME), signer::address_of(&stake_registry_signer));
+        avs_manager::add_address(string::utf8(STAKE_REGISTRY_NAME), signer::address_of(&stake_registry_signer));
         move_to(&stake_registry_signer, StakeRegistryConfigs {
             signer_cap,
         });
@@ -86,7 +86,7 @@ module oracle::stake_registry{
     #[view]
     public fun is_initialized(): bool{
         // TODO: use a seperate package manager
-        oracle_manager::address_exists(string::utf8(STAKE_REGISTRY_NAME))
+        avs_manager::address_exists(string::utf8(STAKE_REGISTRY_NAME))
     }
 
 
@@ -440,7 +440,7 @@ module oracle::stake_registry{
     }
 
     inline fun stake_registry_address(): address {
-        oracle_manager::get_address(string::utf8(STAKE_REGISTRY_NAME))
+        avs_manager::get_address(string::utf8(STAKE_REGISTRY_NAME))
     }
 
     inline fun stake_registry_signer(): &signer acquires StakeRegistryConfigs{

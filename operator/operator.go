@@ -1,11 +1,11 @@
 package operator
 
 import (
+	"avs/aggregator"
 	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"oracle-avs/aggregator"
 	"os"
 	"os/signal"
 	"strconv"

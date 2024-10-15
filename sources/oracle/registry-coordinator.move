@@ -1,4 +1,4 @@
-module oracle::registry_coordinator{
+module avs::registry_coordinator{
     use aptos_framework::event;
     use aptos_framework::fungible_asset::{
     Self, Metadata,
@@ -8,18 +8,18 @@ module oracle::registry_coordinator{
     use aptos_framework::timestamp;
     use aptos_framework::primary_fungible_store;
 
-    use oracle::oracle_manager;
+    use avs::avs_manager;
 
     use restaking::staker_manager;
 
-    use oracle::service_manager_base;
-    use oracle::bls_apk_registry::{Self};
-    use oracle::stake_registry;
-    use oracle::index_registry;
+    use avs::service_manager_base;
+    use avs::bls_apk_registry::{Self};
+    use avs::stake_registry;
+    use avs::index_registry;
 
     use restaking::operator_manager;
 
-    use oracle::math_utils;
+    use avs::math_utils;
 
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::smart_vector::{Self, SmartVector};
@@ -70,9 +70,9 @@ module oracle::registry_coordinator{
         };
 
         // derive a resource account from signer to manage User share Account
-        let oracle_signer = &oracle_manager::get_signer();
-        let (registry_coordinator_signer, signer_cap) = account::create_resource_account(oracle_signer, REGISTRY_COORDINATOR_NAME);
-        oracle_manager::add_address(string::utf8(REGISTRY_COORDINATOR_NAME), signer::address_of(&registry_coordinator_signer));
+        let avs_signer = &avs_manager::get_signer();
+        let (registry_coordinator_signer, signer_cap) = account::create_resource_account(avs_signer, REGISTRY_COORDINATOR_NAME);
+        avs_manager::add_address(string::utf8(REGISTRY_COORDINATOR_NAME), signer::address_of(&registry_coordinator_signer));
         move_to(&registry_coordinator_signer, RegistryCoordinatorConfigs {
             signer_cap,
         });
@@ -92,7 +92,7 @@ module oracle::registry_coordinator{
 
     #[view]
     public fun is_initialized(): bool{
-        oracle_manager::address_exists(string::utf8(REGISTRY_COORDINATOR_NAME))
+        avs_manager::address_exists(string::utf8(REGISTRY_COORDINATOR_NAME))
     }
 
     fun ensure_registry_coordinator_store() acquires RegistryCoordinatorConfigs{
@@ -234,7 +234,7 @@ module oracle::registry_coordinator{
 
     // TODO: only owner
     public entry fun create_quorum(owner:&signer, max_operator_count: u32 , minumum_stake: u128, strategies: vector<address>, multipliers: vector<u128>) acquires RegistryCoordinatorConfigs, RegistryCoordinatorStore {
-        oracle_manager::only_owner(signer::address_of(owner));
+        avs_manager::only_owner(signer::address_of(owner));
         ensure_registry_coordinator_store();
         let operator_set_param = OperatorSetParam {
             max_operator_count
@@ -270,7 +270,7 @@ module oracle::registry_coordinator{
     }
 
     public entry fun set_operator_set_params(owner: &signer, quorum_number: u8, max_operator_count: u32) acquires RegistryCoordinatorStore {
-        oracle_manager::only_owner(signer::address_of(owner));
+        avs_manager::only_owner(signer::address_of(owner));
         let operator_set_params = OperatorSetParam{
             max_operator_count,
         };
@@ -441,7 +441,7 @@ module oracle::registry_coordinator{
 
     #[view]
     public fun registry_coordinator_address(): address {
-        oracle_manager::get_address(string::utf8(REGISTRY_COORDINATOR_NAME))
+        avs_manager::get_address(string::utf8(REGISTRY_COORDINATOR_NAME))
     }
 
     inline fun registry_coordinator_signer(): &signer acquires RegistryCoordinatorConfigs{

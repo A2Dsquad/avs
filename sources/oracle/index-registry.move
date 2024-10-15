@@ -1,4 +1,4 @@
-module oracle::index_registry{
+module avs::index_registry{
     use aptos_framework::event;
     use aptos_framework::object;
     use aptos_framework::timestamp;
@@ -12,10 +12,10 @@ module oracle::index_registry{
     use std::vector;
     use std::signer;
 
-    use oracle::oracle_manager; 
-    use oracle::registry_coordinator;
+    use avs::avs_manager; 
+    use avs::registry_coordinator;
 
-    friend oracle::registry_coordinator;
+    friend avs::registry_coordinator;
 
     const INDEX_REGISTRY_NAME: vector<u8> = b"INDEX_REGISTRY_NAME";
     const INDEX_REGISTRY_PREFIX: vector<u8> = b"INDEX_REGISTRY_PREFIX";
@@ -59,9 +59,9 @@ module oracle::index_registry{
         };
 
         // derive a resource account from signer to manage User share Account
-        let oracle_signer = &oracle_manager::get_signer();
-        let (index_registry_signer, signer_cap) = account::create_resource_account(oracle_signer, INDEX_REGISTRY_NAME);
-        oracle_manager::add_address(string::utf8(INDEX_REGISTRY_NAME), signer::address_of(&index_registry_signer));
+        let avs_signer = &avs_manager::get_signer();
+        let (index_registry_signer, signer_cap) = account::create_resource_account(avs_signer, INDEX_REGISTRY_NAME);
+        avs_manager::add_address(string::utf8(INDEX_REGISTRY_NAME), signer::address_of(&index_registry_signer));
         move_to(&index_registry_signer, IndexRegistryConfigs {
             signer_cap,
         });
@@ -69,13 +69,13 @@ module oracle::index_registry{
 
     #[view]
     public fun is_initialized(): bool{
-        oracle_manager::address_exists(string::utf8(INDEX_REGISTRY_NAME))
+        avs_manager::address_exists(string::utf8(INDEX_REGISTRY_NAME))
     }
 
     #[view]
     /// Return the address of the resource account that stores pool manager configs.
     public fun index_registry_address(): address {
-        oracle_manager::get_address(string::utf8(INDEX_REGISTRY_NAME))
+        avs_manager::get_address(string::utf8(INDEX_REGISTRY_NAME))
     }
 
     fun ensure_index_regsitry_store() acquires IndexRegistryConfigs{

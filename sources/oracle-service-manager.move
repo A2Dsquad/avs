@@ -1,4 +1,4 @@
-module oracle::service_manager{
+module avs::service_manager{
     use aptos_framework::event;
     use aptos_framework::fungible_asset::{
         Self, FungibleAsset, FungibleStore, Metadata,
@@ -15,13 +15,13 @@ module oracle::service_manager{
     use std::vector;
     use std::signer;
 
-    use oracle::oracle_manager; 
-    use oracle::registry_coordinator;
-    use oracle::service_manager_base;
-    use oracle::bls_apk_registry;
-    use oracle::stake_registry;
-    use oracle::fee_pool;
-    use oracle::bls_sig_checker;
+    use avs::avs_manager; 
+    use avs::registry_coordinator;
+    use avs::service_manager_base;
+    use avs::bls_apk_registry;
+    use avs::stake_registry;
+    use avs::fee_pool;
+    use avs::bls_sig_checker;
 
     const SERVICE_MANAGER_NAME: vector<u8> = b"SERVICE_MANAGER_NAME";
     const SERVICE_PREFIX: vector<u8> = b"SERVICE_PREFIX";
@@ -88,9 +88,9 @@ module oracle::service_manager{
         };
 
         // derive a resource account from signer to manage User share Account
-        let oracle_signer = &oracle_manager::get_signer();
-        let (service_manager_signer, signer_cap) = account::create_resource_account(oracle_signer, SERVICE_MANAGER_NAME);
-        oracle_manager::add_address(string::utf8(SERVICE_MANAGER_NAME), signer::address_of(&service_manager_signer));
+        let avs_signer = &avs_manager::get_signer();
+        let (service_manager_signer, signer_cap) = account::create_resource_account(avs_signer, SERVICE_MANAGER_NAME);
+        avs_manager::add_address(string::utf8(SERVICE_MANAGER_NAME), signer::address_of(&service_manager_signer));
         move_to(&service_manager_signer, ServiceManagerConfigs {
             signer_cap,
         });
@@ -221,13 +221,13 @@ module oracle::service_manager{
 
     #[view]
     public fun is_initialized(): bool{
-        oracle_manager::address_exists(string::utf8(SERVICE_MANAGER_NAME))
+        avs_manager::address_exists(string::utf8(SERVICE_MANAGER_NAME))
     }
 
     #[view]
     /// Return the address of the resource account that stores pool manager configs.
     public fun service_manager_address(): address {
-        oracle_manager::get_address(string::utf8(SERVICE_MANAGER_NAME))
+        avs_manager::get_address(string::utf8(SERVICE_MANAGER_NAME))
     }
 
     #[view]

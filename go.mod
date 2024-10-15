@@ -1,4 +1,4 @@
-module oracle-avs
+module avs
 
 require (
 	github.com/Layr-Labs/eigensdk-go v0.1.12

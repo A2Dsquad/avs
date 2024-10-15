@@ -1,4 +1,4 @@
-module oracle::merkle_tree {
+module avs::merkle_tree {
   use std::vector;
   
   use aptos_std::comparator;

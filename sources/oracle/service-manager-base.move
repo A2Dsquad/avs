@@ -1,4 +1,4 @@
-module oracle::service_manager_base{
+module avs::service_manager_base{
     use aptos_framework::event;
     use aptos_framework::fungible_asset::{
     Self, Metadata,
@@ -8,9 +8,9 @@ module oracle::service_manager_base{
     use aptos_framework::timestamp;
     use aptos_framework::primary_fungible_store;
 
-    use oracle::oracle_manager;
-    use oracle::registry_coordinator;
-    use oracle::stake_registry;
+    use avs::avs_manager;
+    use avs::registry_coordinator;
+    use avs::stake_registry;
 
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::aptos_hash;
@@ -49,9 +49,9 @@ module oracle::service_manager_base{
         };
 
         // derive a resource account from signer to manage User share Account
-        let oracle_signer = &oracle_manager::get_signer();
-        let (service_manager_signer, signer_cap) = account::create_resource_account(oracle_signer, SERVICE_MANAGER_BASE_NAME);
-        oracle_manager::add_address(string::utf8(SERVICE_MANAGER_BASE_NAME), signer::address_of(&service_manager_signer));
+        let avs_signer = &avs_manager::get_signer();
+        let (service_manager_signer, signer_cap) = account::create_resource_account(avs_signer, SERVICE_MANAGER_BASE_NAME);
+        avs_manager::add_address(string::utf8(SERVICE_MANAGER_BASE_NAME), signer::address_of(&service_manager_signer));
         move_to(&service_manager_signer, ServiceManagerConfigs {
             signer_cap,
         });
@@ -60,7 +60,7 @@ module oracle::service_manager_base{
     #[view]
     public fun is_initialized(): bool{
         // TODO: use a seperate package manager
-        oracle_manager::address_exists(string::utf8(SERVICE_MANAGER_BASE_NAME))
+        avs_manager::address_exists(string::utf8(SERVICE_MANAGER_BASE_NAME))
     }
 
     #[view]
@@ -127,7 +127,7 @@ module oracle::service_manager_base{
     }
 
     inline fun service_manager_base_address(): address {
-        oracle_manager::get_address(string::utf8(SERVICE_MANAGER_BASE_NAME))
+        avs_manager::get_address(string::utf8(SERVICE_MANAGER_BASE_NAME))
     }
 
     inline fun service_manager_signer(): &signer acquires ServiceManagerConfigs{

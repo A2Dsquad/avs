@@ -44,7 +44,7 @@ func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config O
 	registered := IsOperatorRegistered(client, avsAddress, operatorAccount.Address.String())
 
 	if !registered {
-		log.Println("Operator is not registered with A2D Oracle AVS, registering...")
+		log.Println("Operator is not registered with A2D avs AVS, registering...")
 
 		quorumCount := QuorumCount(client, avsAddress)
 		if quorumCount == 0 {

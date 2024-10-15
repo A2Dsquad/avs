@@ -1,3 +1,3 @@
-module oracle::signature_utils {
+module avs::signature_utils {
   
 }

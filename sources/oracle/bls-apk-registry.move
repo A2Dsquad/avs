@@ -1,4 +1,4 @@
-module oracle::bls_apk_registry{
+module avs::bls_apk_registry{
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::event;
     use aptos_framework::timestamp;
@@ -13,10 +13,10 @@ module oracle::bls_apk_registry{
     use std::vector;
     use std::signer;
     
-    use oracle::oracle_manager; 
-    use oracle::registry_coordinator;
+    use avs::avs_manager; 
+    use avs::registry_coordinator;
 
-    friend oracle::registry_coordinator;
+    friend avs::registry_coordinator;
 
     const ZERO_PK_HASH: vector<u8> = x"ad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5";
     const DST: vector<u8> = b"QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_";
@@ -60,9 +60,9 @@ module oracle::bls_apk_registry{
         };
 
         // derive a resource account from signer to manage User share Account
-        let oracle_signer = &oracle_manager::get_signer();
-        let (bls_apk_registry_signer, signer_cap) = account::create_resource_account(oracle_signer, BLS_APK_REGISTRY_NAME);
-        oracle_manager::add_address(string::utf8(BLS_APK_REGISTRY_NAME), signer::address_of(&bls_apk_registry_signer));
+        let avs_signer = &avs_manager::get_signer();
+        let (bls_apk_registry_signer, signer_cap) = account::create_resource_account(avs_signer, BLS_APK_REGISTRY_NAME);
+        avs_manager::add_address(string::utf8(BLS_APK_REGISTRY_NAME), signer::address_of(&bls_apk_registry_signer));
         move_to(&bls_apk_registry_signer, BLSApkRegistryConfigs {
             signer_cap,
         });
@@ -70,13 +70,13 @@ module oracle::bls_apk_registry{
 
     #[view]
     public fun is_initialized(): bool{
-        oracle_manager::address_exists(string::utf8(BLS_APK_REGISTRY_NAME))
+        avs_manager::address_exists(string::utf8(BLS_APK_REGISTRY_NAME))
     }
 
     #[view]
     /// Return the address of the resource account that stores pool manager configs.
     public fun bls_apk_registry_address(): address {
-      oracle_manager::get_address(string::utf8(BLS_APK_REGISTRY_NAME))
+      avs_manager::get_address(string::utf8(BLS_APK_REGISTRY_NAME))
     }
 
     fun ensure_bls_apk_registry_store() acquires BLSApkRegistryConfigs{

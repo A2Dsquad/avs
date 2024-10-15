@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	operator "oracle-avs/operator"
-	"oracle-avs/aggregator"
+	"avs/aggregator"
+	operator "avs/operator"
 )
 
 func main() {

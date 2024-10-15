@@ -1,4 +1,4 @@
-module oracle::epoch {
+module avs::epoch {
   use aptos_framework::timestamp;
 
   const EPOCH_LENGTH: u64 = 3600;
