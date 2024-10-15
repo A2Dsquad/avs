@@ -1,4 +1,4 @@
-module oracle::oracle_manager {
+module avs::avs_manager {
     use aptos_framework::event;
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::resource_account;
@@ -6,14 +6,14 @@ module oracle::oracle_manager {
     use std::string::{Self, String};
     use std::signer;
 
-    friend oracle::index_registry;
-    friend oracle::bls_apk_registry;
-    friend oracle::bls_sig_checker;
-    friend oracle::registry_coordinator;
-    friend oracle::stake_registry;
-    friend oracle::service_manager_base;
-    friend oracle::fee_pool;
-    friend oracle::service_manager;
+    friend avs::index_registry;
+    friend avs::bls_apk_registry;
+    friend avs::bls_sig_checker;
+    friend avs::registry_coordinator;
+    friend avs::stake_registry;
+    friend avs::service_manager_base;
+    friend avs::fee_pool;
+    friend avs::service_manager;
 
     const OWNER_NAME: vector<u8> = b"OWNER";
 
@@ -46,13 +46,13 @@ module oracle::oracle_manager {
 
     /// Can be called by friended modules to obtain the resource account signer.
     public(friend) fun get_signer(): signer acquires PermissionConfig {
-        let signer_cap = &borrow_global<PermissionConfig>(@oracle).signer_cap;
+        let signer_cap = &borrow_global<PermissionConfig>(@avs).signer_cap;
         account::create_signer_with_capability(signer_cap)
     }
 
     /// Can be called by friended modules to keep track of a system address.
     public(friend) fun add_address(name: String, object: address) acquires PermissionConfig {
-        let addresses = &mut borrow_global_mut<PermissionConfig>(@oracle).addresses;
+        let addresses = &mut borrow_global_mut<PermissionConfig>(@avs).addresses;
         smart_table::upsert(addresses, name, object);
     }
 
@@ -74,12 +74,12 @@ module oracle::oracle_manager {
     }
 
     public fun get_address(name: String): address acquires PermissionConfig {
-        let addresses = &borrow_global<PermissionConfig>(@oracle).addresses;
+        let addresses = &borrow_global<PermissionConfig>(@avs).addresses;
         *smart_table::borrow(addresses, name)
     }
 
     inline fun safe_permission_config(): &PermissionConfig acquires PermissionConfig {
-        borrow_global<PermissionConfig>(@oracle)
+        borrow_global<PermissionConfig>(@avs)
     }
 
     #[test_only]

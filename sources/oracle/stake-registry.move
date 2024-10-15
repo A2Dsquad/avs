@@ -1,4 +1,4 @@
-module oracle::stake_registry{
+module avs::stake_registry{
     use aptos_framework::event;
     use aptos_framework::fungible_asset::{
     Self, Metadata,
@@ -10,8 +10,8 @@ module oracle::stake_registry{
 
     use restaking::staker_manager;
 
-    use oracle::oracle_manager;
-    use oracle::service_manager_base;
+    use avs::avs_manager;
+    use avs::service_manager_base;
 
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::smart_vector::{Self, SmartVector};
@@ -24,7 +24,7 @@ module oracle::stake_registry{
     use std::vector;
     use std::signer;
 
-    friend oracle::registry_coordinator;
+    friend avs::registry_coordinator;
 
     const WEIGHTING_DIVISOR: u128 = 1_000_000_000; // 1e9
 
@@ -45,6 +45,7 @@ module oracle::stake_registry{
     const ESTAKE_UPDATE_AFTER_TIMESTAMP: u64 = 1208;
     const ENEW_STAKE_UPDATE_BEFORE_TIMESTAMP: u64 = 1209;
     const EOPERATOR_ID_NOT_FOUND: u64 = 1210;
+    const EINVALID_TIMESTAMP: u64 = 1211;
 
     struct StakeRegistryConfigs has key {
         signer_cap: SignerCapability,
@@ -74,9 +75,9 @@ module oracle::stake_registry{
         };
 
         // derive a resource account from signer to manage User share Account
-        let staking_signer = &oracle_manager::get_signer();
+        let staking_signer = &avs_manager::get_signer();
         let (stake_registry_signer, signer_cap) = account::create_resource_account(staking_signer, STAKE_REGISTRY_NAME);
-        oracle_manager::add_address(string::utf8(STAKE_REGISTRY_NAME), signer::address_of(&stake_registry_signer));
+        avs_manager::add_address(string::utf8(STAKE_REGISTRY_NAME), signer::address_of(&stake_registry_signer));
         move_to(&stake_registry_signer, StakeRegistryConfigs {
             signer_cap,
         });
@@ -85,7 +86,7 @@ module oracle::stake_registry{
     #[view]
     public fun is_initialized(): bool{
         // TODO: use a seperate package manager
-        oracle_manager::address_exists(string::utf8(STAKE_REGISTRY_NAME))
+        avs_manager::address_exists(string::utf8(STAKE_REGISTRY_NAME))
     }
 
 
@@ -326,32 +327,43 @@ module oracle::stake_registry{
     }
     
     #[view]
-    public fun total_stake_at_timestamp_from_index(quorum_number: u8, timestamp: u64, index: u64): u128 acquires StakeRegistryStore {
+    public fun total_stake_at_timestamp(quorum_number: u8, timestamp: u64): u128 acquires StakeRegistryStore {
         let store = stake_registry_store();
         assert!(smart_table::contains(&store.total_stake_history, quorum_number), ESTAKE_HISTORY_NOT_EXIST);
         let total_stake_history = smart_table::borrow(&store.total_stake_history, quorum_number);
-        assert!(vector::length(total_stake_history) -1 >= index, ESTAKE_HISTORY_INDEX_INVALID);
-
-        let total_stake_update = vector::borrow(total_stake_history, index);
-        assert!(timestamp >= total_stake_update.update_timestamp, ESTAKE_UPDATE_AFTER_TIMESTAMP);
-        assert!(timestamp < total_stake_update.next_update_timestamp, ENEW_STAKE_UPDATE_BEFORE_TIMESTAMP);
-        return total_stake_update.stake
+        let total_stake_history_length = vector::length(total_stake_history);
+        assert!(total_stake_history_length > 0, ESTAKE_HISTORY_INDEX_INVALID);
+        
+        for (i in 0..(total_stake_history_length)) {
+            let index = total_stake_history_length - i - 1;
+            let total_stake_update = vector::borrow(total_stake_history, index);
+            if (total_stake_update.update_timestamp < timestamp) {
+                return total_stake_update.stake
+            }
+        };
+        assert!(false, EINVALID_TIMESTAMP);
+        return 0
     }
 
      #[view]
-    public fun get_stake_at_timestamp_and_index(quorum_number: u8, timestamp: u64, operator_id: vector<u8>, index: u64): u128 acquires StakeRegistryStore {
+    public fun get_stake_at_timestamp(quorum_number: u8, timestamp: u64, operator_id: vector<u8>): u128 acquires StakeRegistryStore {
         let store = stake_registry_store();
         assert!(smart_table::contains(&store.operator_stake_history, operator_id), EOPERATOR_ID_NOT_FOUND);
         let operator_stake_history = smart_table::borrow(&store.operator_stake_history, operator_id);
         assert!(smart_table::contains(operator_stake_history,quorum_number), ESTAKE_HISTORY_NOT_EXIST);
         let quorum_stake_history = smart_table::borrow(operator_stake_history, quorum_number);
-        assert!(vector::length(quorum_stake_history) -1 >= index, ESTAKE_HISTORY_INDEX_INVALID);
+        let quorum_stake_history_length = vector::length(quorum_stake_history);
+        assert!(quorum_stake_history_length > 0, ESTAKE_HISTORY_INDEX_INVALID);
         
-        let stake_update = vector::borrow(quorum_stake_history, index);
-        assert!(timestamp >= stake_update.update_timestamp, ESTAKE_UPDATE_AFTER_TIMESTAMP);
-        assert!(timestamp < stake_update.next_update_timestamp, ENEW_STAKE_UPDATE_BEFORE_TIMESTAMP);
-
-        return stake_update.stake
+        for (i in 0..(quorum_stake_history_length)) {
+            let index = quorum_stake_history_length - i - 1;
+            let stake_update = vector::borrow(quorum_stake_history, index);
+            if (stake_update.update_timestamp < timestamp) {
+                return stake_update.stake
+            }
+        };
+        assert!(false, EINVALID_TIMESTAMP);
+        return 0
     }
     #[view]
     public fun total_history_length(quorum_number: u8): u64 acquires StakeRegistryStore{
@@ -428,7 +440,7 @@ module oracle::stake_registry{
     }
 
     inline fun stake_registry_address(): address {
-        oracle_manager::get_address(string::utf8(STAKE_REGISTRY_NAME))
+        avs_manager::get_address(string::utf8(STAKE_REGISTRY_NAME))
     }
 
     inline fun stake_registry_signer(): &signer acquires StakeRegistryConfigs{

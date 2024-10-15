@@ -1,4 +1,4 @@
-module oracle::math_utils {
+module avs::math_utils {
   use std::vector;
 
   const EOVERFLOW: u64 = 1001;

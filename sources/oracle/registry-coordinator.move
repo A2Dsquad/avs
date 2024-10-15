@@ -1,4 +1,4 @@
-module oracle::registry_coordinator{
+module avs::registry_coordinator{
     use aptos_framework::event;
     use aptos_framework::fungible_asset::{
     Self, Metadata,
@@ -8,18 +8,18 @@ module oracle::registry_coordinator{
     use aptos_framework::timestamp;
     use aptos_framework::primary_fungible_store;
 
-    use oracle::oracle_manager;
+    use avs::avs_manager;
 
     use restaking::staker_manager;
 
-    use oracle::service_manager_base;
-    use oracle::bls_apk_registry::{Self};
-    use oracle::stake_registry;
-    use oracle::index_registry;
+    use avs::service_manager_base;
+    use avs::bls_apk_registry::{Self};
+    use avs::stake_registry;
+    use avs::index_registry;
 
     use restaking::operator_manager;
 
-    use oracle::math_utils;
+    use avs::math_utils;
 
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::smart_vector::{Self, SmartVector};
@@ -44,6 +44,7 @@ module oracle::registry_coordinator{
         quorum_count: u8,
         quorum_params: SmartTable<u8, OperatorSetParam>,
         operator_infos: SmartTable<address, OperatorInfo>,
+        operator_addresses: SmartTable<vector<u8>, address>,
         operator_bitmap: SmartTable<vector<u8>, u256>,
         operator_bitmap_history: SmartTable<vector<u8>, vector<QuorumBitmapUpdate>>,
     }
@@ -69,9 +70,9 @@ module oracle::registry_coordinator{
         };
 
         // derive a resource account from signer to manage User share Account
-        let oracle_signer = &oracle_manager::get_signer();
-        let (registry_coordinator_signer, signer_cap) = account::create_resource_account(oracle_signer, REGISTRY_COORDINATOR_NAME);
-        oracle_manager::add_address(string::utf8(REGISTRY_COORDINATOR_NAME), signer::address_of(&registry_coordinator_signer));
+        let avs_signer = &avs_manager::get_signer();
+        let (registry_coordinator_signer, signer_cap) = account::create_resource_account(avs_signer, REGISTRY_COORDINATOR_NAME);
+        avs_manager::add_address(string::utf8(REGISTRY_COORDINATOR_NAME), signer::address_of(&registry_coordinator_signer));
         move_to(&registry_coordinator_signer, RegistryCoordinatorConfigs {
             signer_cap,
         });
@@ -83,6 +84,7 @@ module oracle::registry_coordinator{
             quorum_count: 0,
             quorum_params: smart_table::new(),
             operator_infos: smart_table::new(),
+            operator_addresses: smart_table::new(),
             operator_bitmap: smart_table::new(),
             operator_bitmap_history: smart_table::new(),
         })
@@ -90,7 +92,7 @@ module oracle::registry_coordinator{
 
     #[view]
     public fun is_initialized(): bool{
-        oracle_manager::address_exists(string::utf8(REGISTRY_COORDINATOR_NAME))
+        avs_manager::address_exists(string::utf8(REGISTRY_COORDINATOR_NAME))
     }
 
     fun ensure_registry_coordinator_store() acquires RegistryCoordinatorConfigs{
@@ -100,7 +102,7 @@ module oracle::registry_coordinator{
     }
 
     // TODO: not done
-    public entry fun registor_operator(operator: &signer,  quorum_numbers: vector<u8>, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>) acquires RegistryCoordinatorStore{
+    public entry fun registor_operator(operator: &signer, quorum_numbers: vector<u8>, signature: vector<u8>, pubkey: vector<u8>, pop: vector<u8>) acquires RegistryCoordinatorStore{
         let operator_id = get_or_create_operator_id(operator, signature, pubkey, pop);
 
         let (_ , _ , num_operators_per_quorum) = register_operator_internal(operator, operator_id, quorum_numbers);
@@ -129,7 +131,9 @@ module oracle::registry_coordinator{
             operator_id: operator_id,
             operator_status: 0
         });
-        
+        assert!(!smart_table::contains(&mut_store.operator_addresses, operator_id), 1111);
+        smart_table::add(&mut mut_store.operator_addresses, operator_id, operator_address);
+
         if (mut_operator_info.operator_status != 1) {
             mut_operator_info.operator_status = 1;
             // TODO: 
@@ -202,11 +206,20 @@ module oracle::registry_coordinator{
                 if (operator_bitmap_history_length != 0) {
                     current_bitmap = vector::borrow(smart_table::borrow(&store.operator_bitmap_history, operator_id), operator_bitmap_history_length-1).quorum_bitmap
                 };
-                assert!(1 == (current_bitmap >> quorum_number) & 1, 107);
+
+                assert!(1 == (current_bitmap >> (quorum_number-1)) & 1, 107);
 
                 if (operator_info.operator_status != 1) {
                     continue
                 };
+
+                let store_mut = mut_registry_coordinator_store();
+                let operator_info_mut = smart_table::borrow_mut_with_default(&mut store_mut.operator_bitmap_history, operator_id, vector::empty());
+                vector::push_back(operator_info_mut,  QuorumBitmapUpdate{
+                    update_timestamp: timestamp::now_seconds(),
+                    next_update_timestamp: 0,
+                    quorum_bitmap: current_bitmap,
+                });
 
                 let quorum_to_remove: u256 = stake_registry::update_operator_stake(operator_address, operator_id, vector::singleton(quorum_number));
 
@@ -214,13 +227,14 @@ module oracle::registry_coordinator{
 
                     deregister_operator_internal(operator_address, bitmap_to_vecu8(quorum_to_remove));
                 }
-            }
+            };
         }
     }
 
 
     // TODO: only owner
-    public entry fun create_quorum(max_operator_count: u32 , minumum_stake: u128, strategies: vector<address>, multipliers: vector<u128>) acquires RegistryCoordinatorConfigs, RegistryCoordinatorStore {
+    public entry fun create_quorum(owner:&signer, max_operator_count: u32 , minumum_stake: u128, strategies: vector<address>, multipliers: vector<u128>) acquires RegistryCoordinatorConfigs, RegistryCoordinatorStore {
+        avs_manager::only_owner(signer::address_of(owner));
         ensure_registry_coordinator_store();
         let operator_set_param = OperatorSetParam {
             max_operator_count
@@ -249,13 +263,18 @@ module oracle::registry_coordinator{
         let mut_quorum_count = &mut mut_store.quorum_count;
         *mut_quorum_count = *mut_quorum_count + 1;
 
-        set_operator_set_params_internal(pre_quorum_count + 1, operator_set_params);
-        stake_registry::initialize_quorum(pre_quorum_count + 1, minumum_stake, strategy_params);
-        index_registry::initialize_quorum(pre_quorum_count + 1);
-        bls_apk_registry::initialize_quorum(pre_quorum_count + 1);
+        set_operator_set_params_internal(pre_quorum_count+1, operator_set_params);
+        stake_registry::initialize_quorum(pre_quorum_count+1, minumum_stake, strategy_params);
+        index_registry::initialize_quorum(pre_quorum_count+1);
+        bls_apk_registry::initialize_quorum(pre_quorum_count+1);
     }
 
-    public fun set_operator_set_params(quorum_number: u8, operator_set_params: OperatorSetParam) acquires RegistryCoordinatorStore {
+    public entry fun set_operator_set_params(owner: &signer, quorum_number: u8, max_operator_count: u32) acquires RegistryCoordinatorStore {
+        avs_manager::only_owner(signer::address_of(owner));
+        let operator_set_params = OperatorSetParam{
+            max_operator_count,
+        };
+
         set_operator_set_params_internal(quorum_number, operator_set_params);
     }
 
@@ -362,6 +381,12 @@ module oracle::registry_coordinator{
     }
 
     #[view]
+    public fun get_operator_address(operator_id: vector<u8>): address acquires RegistryCoordinatorStore {
+        let store = registry_coordinator_store();
+        *smart_table::borrow(&store.operator_addresses, operator_id)
+    }
+
+    #[view]
     public fun get_operator_status(operator: address): u8 acquires RegistryCoordinatorStore {
         let store = registry_coordinator_store();
         smart_table::borrow_with_default(&store.operator_infos, operator, &OperatorInfo{
@@ -373,17 +398,25 @@ module oracle::registry_coordinator{
     #[view]
     public fun get_quorum_bitmap_by_timestamp(operator_id: vector<u8>, timestamp: u64): u256 acquires RegistryCoordinatorStore {
         let store = registry_coordinator_store();
-        let operator_bitmap_history = smart_table::borrow(&store.operator_bitmap_history, operator_id);
+        let operator_bitmap_history = smart_table::borrow_with_default(&store.operator_bitmap_history, operator_id, &vector::empty());
         let operator_bitmap_history_length = vector::length(operator_bitmap_history);
-        for (i in 0..operator_bitmap_history_length) {
+        for (i in 0..(operator_bitmap_history_length)) {
             let index = operator_bitmap_history_length - i - 1;
-            let update_timestamp = vector::borrow(operator_bitmap_history, i).update_timestamp;
+            let update_timestamp = vector::borrow(operator_bitmap_history, index).update_timestamp;
             if (update_timestamp < timestamp) {
-                return vector::borrow(operator_bitmap_history, i).quorum_bitmap
+                return vector::borrow(operator_bitmap_history, index).quorum_bitmap
             }
         };
         assert!(false, 302);
         return 0
+    }
+
+    #[view]
+    public fun get_operator_bitmap_history_length(operator_id: vector<u8>): u64 acquires RegistryCoordinatorStore {
+        let store = registry_coordinator_store();
+        let operator_bitmap_history = smart_table::borrow_with_default(&store.operator_bitmap_history, operator_id, &vector::empty());
+        let operator_bitmap_history_length = vector::length(operator_bitmap_history);
+        return operator_bitmap_history_length
     }
 
     #[view]
@@ -408,7 +441,7 @@ module oracle::registry_coordinator{
 
     #[view]
     public fun registry_coordinator_address(): address {
-        oracle_manager::get_address(string::utf8(REGISTRY_COORDINATOR_NAME))
+        avs_manager::get_address(string::utf8(REGISTRY_COORDINATOR_NAME))
     }
 
     inline fun registry_coordinator_signer(): &signer acquires RegistryCoordinatorConfigs{

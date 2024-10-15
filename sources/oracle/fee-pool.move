@@ -1,4 +1,4 @@
-module oracle::fee_pool{
+module avs::fee_pool{
     use aptos_framework::event;
     use aptos_framework::fungible_asset::{
         Self, FungibleAsset, FungibleStore, Metadata,
@@ -9,9 +9,9 @@ module oracle::fee_pool{
     use std::vector;
     use std::signer;
 
-    use oracle::oracle_manager;
+    use avs::avs_manager;
 
-    friend oracle::service_manager;
+    friend avs::service_manager;
 
     struct FeePool has key {
         token_store: Object<FungibleStore>,
@@ -20,7 +20,7 @@ module oracle::fee_pool{
     public(friend) fun ensure_fee_pool(token: Object<Metadata>): Object<FeePool> {
         let seeds = get_pool_seeds(token);
 
-        let package_signer = &oracle_manager::get_signer();
+        let package_signer = &avs_manager::get_signer();
         let fee_pool_addr = object::create_object_address(&signer::address_of(package_signer), seeds);
 
         if(object::object_exists<FeePool>(fee_pool_addr)){
@@ -53,7 +53,7 @@ module oracle::fee_pool{
         let fee_pool = mut_fee_pool(&pool);
 
         let token = fungible_asset::store_metadata(fee_pool.token_store);
-        let pool_signer = &oracle_manager::get_signer();
+        let pool_signer = &avs_manager::get_signer();
         let withdrawal = fungible_asset::withdraw(pool_signer, fee_pool.token_store, amount);
 
         let to = primary_fungible_store::ensure_primary_store_exists(recipient, token);

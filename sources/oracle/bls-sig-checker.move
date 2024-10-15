@@ -1,4 +1,4 @@
-module oracle::bls_sig_checker{
+module avs::bls_sig_checker{
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::event;
     use aptos_framework::timestamp;
@@ -12,11 +12,11 @@ module oracle::bls_sig_checker{
     use std::signer;
 
     use restaking::withdrawal;
-    use oracle::bls_apk_registry; 
-    use oracle::math_utils;
-    use oracle::oracle_manager; 
-    use oracle::stake_registry;
-    use oracle::registry_coordinator;
+    use avs::bls_apk_registry; 
+    use avs::math_utils;
+    use avs::avs_manager; 
+    use avs::stake_registry;
+    use avs::registry_coordinator;
 
     const BLS_SIG_CHECKER_NAME: vector<u8> = b"BLS_SIG_CHECKER_NAME";
 
@@ -40,9 +40,9 @@ module oracle::bls_sig_checker{
         };
 
         // derive a resource account from signer to manage User share Account
-        let oracle_signer = &oracle_manager::get_signer();
-        let (bls_sig_checker_signer, signer_cap) = account::create_resource_account(oracle_signer, BLS_SIG_CHECKER_NAME);
-        oracle_manager::add_address(string::utf8(BLS_SIG_CHECKER_NAME), signer::address_of(&bls_sig_checker_signer));
+        let avs_signer = &avs_manager::get_signer();
+        let (bls_sig_checker_signer, signer_cap) = account::create_resource_account(avs_signer, BLS_SIG_CHECKER_NAME);
+        avs_manager::add_address(string::utf8(BLS_SIG_CHECKER_NAME), signer::address_of(&bls_sig_checker_signer));
         move_to(&bls_sig_checker_signer, BLSSigCheckerConfig {
             signer_cap,
         });
@@ -51,34 +51,24 @@ module oracle::bls_sig_checker{
     #[view]
     /// Return the address of the resource account that stores pool manager configs.
     public fun bls_sig_checker_address(): address {
-        oracle_manager::get_address(string::utf8(BLS_SIG_CHECKER_NAME))
+        avs_manager::get_address(string::utf8(BLS_SIG_CHECKER_NAME))
     }
 
     #[view]
     public fun is_initialized(): bool{
-        oracle_manager::address_exists(string::utf8(BLS_SIG_CHECKER_NAME))
+        avs_manager::address_exists(string::utf8(BLS_SIG_CHECKER_NAME))
     }
 
+    #[view]
     public fun check_signatures(
         quorum_numbers: vector<u8>, 
         reference_timestamp: u64, 
         msg_hashes: vector<vector<u8>>, 
         signer_pubkeys: vector<vector<u8>>,
         signer_sigs: vector<vector<u8>>,
-        quorum_aggr_pks: vector<vector<u8>>,
-        quorum_apk_indices: vector<u64>,
-        total_stake_indices: vector<u64>,
-        signer_stake_indices: vector<vector<u64>>,
     ): (vector<u128>, vector<u128>) {
         let quorum_length = vector::length(&quorum_numbers);
         assert!(quorum_length > 0, EEMPTY_QUORUM);
-        assert!(
-            (quorum_length == vector::length(&quorum_aggr_pks)) &&
-            (quorum_length == vector::length(&quorum_apk_indices)) &&
-            (quorum_length == vector::length(&total_stake_indices)) && 
-            (quorum_length == vector::length(&signer_stake_indices)),
-            EINPUT_QUORUM_LENGTH_MISMATCH
-        );
         let signer_pubkeys_length = vector::length(&signer_pubkeys);
 
         let now = timestamp::now_seconds();
@@ -89,57 +79,50 @@ module oracle::bls_sig_checker{
         let quorum_bitmaps: vector<u256> = vector::empty();
         let pubkey_hashes: vector<vector<u8>> = vector::empty();
 
-        for (i in 0..(signer_pubkeys_length-1)) {
+        for (i in 0..(signer_pubkeys_length)) {
             let signer_pubkey = *vector::borrow(&signer_pubkeys, i);
             let signer_sig = *vector::borrow(&signer_sigs, i);
             let msg_hash = *vector::borrow(&msg_hashes, i);
             let pubkey_hash = crypto_algebra::hash_to<G1, HashG1XmdSha256SswuRo>(&DST, &signer_pubkey);
             let serialize_pk_hash = crypto_algebra::serialize<G1, FormatG1Uncompr>(&pubkey_hash);
-
+            
             vector::push_back(&mut pubkey_hashes, serialize_pk_hash);
             // TODO: change to specific timestamp
             vector::push_back(&mut quorum_bitmaps, registry_coordinator::get_quorum_bitmap_by_timestamp(serialize_pk_hash, reference_timestamp));
             assert!(bls_apk_registry::validate_signature(serialize_pk_hash, signer_sig, msg_hash), ESIGNATURE_VALIDATE_INVALID);
+        
         };
 
         let withdrawal_delay = withdrawal::minimum_withdrawal_delay();
-        
-        for (i in 0..(quorum_length - 1)) {
+
+        for (i in 0..(quorum_length)) {
             // TODO: registryCoordinator.quorumUpdateBlockNumber
 
-            let quorum_apk = *vector::borrow(&quorum_aggr_pks, i);
             let quorum_number = *vector::borrow(&quorum_numbers, i);
-            assert!(bls_apk_registry::get_aggr_pk_hash_at_timestamp(
-                quorum_number,
-                reference_timestamp,
-                *vector::borrow(&quorum_apk_indices, i)
-            ) == quorum_apk, EQUORUM_APK_HASH_MISMATCH);
-
-            let total_stake_quorum = stake_registry::total_stake_at_timestamp_from_index(
+            let total_stake_quorum = stake_registry::total_stake_at_timestamp(
                 quorum_number, 
-                reference_timestamp, 
-                *vector::borrow(&total_stake_indices, i)
+                reference_timestamp
             );
             vector::push_back(&mut total_stake_for_quorum, total_stake_quorum);
             vector::push_back(&mut signed_stake_for_quorum, 0);
 
             let signer_quorum_index: u64 = 0;
-            for (j in 0..(signer_pubkeys_length - 1)) {
+            for (j in 0..(signer_pubkeys_length)) {
                 let quorum_bitmap = *vector::borrow(&quorum_bitmaps, j);
-                if (1 == (quorum_bitmap >> quorum_number) & 1) {
+                if (1 == (quorum_bitmap >>( quorum_number - 1)) & 1) {
                     let signed_stake = vector::borrow_mut(&mut signed_stake_for_quorum, i);
                     let operator_id = vector::borrow(&mut pubkey_hashes, j);
-                    *signed_stake = *signed_stake + stake_registry::get_stake_at_timestamp_and_index(
+                    *signed_stake = *signed_stake + stake_registry::get_stake_at_timestamp(
                         quorum_number, 
                         reference_timestamp, 
-                        *operator_id,
-                        *vector::borrow(vector::borrow(&signer_stake_indices, i), signer_quorum_index)
+                        *operator_id
                     );
                     signer_quorum_index = signer_quorum_index + 1;
                 }
             }
         };
-        return (total_stake_for_quorum, signed_stake_for_quorum)
+
+        return (signed_stake_for_quorum, total_stake_for_quorum)
     }
 
     inline fun bls_sig_checker_signer(): &signer acquires BLSSigCheckerConfig{

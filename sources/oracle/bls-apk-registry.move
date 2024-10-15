@@ -1,4 +1,4 @@
-module oracle::bls_apk_registry{
+module avs::bls_apk_registry{
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::event;
     use aptos_framework::timestamp;
@@ -13,10 +13,10 @@ module oracle::bls_apk_registry{
     use std::vector;
     use std::signer;
     
-    use oracle::oracle_manager; 
-    use oracle::registry_coordinator;
+    use avs::avs_manager; 
+    use avs::registry_coordinator;
 
-    friend oracle::registry_coordinator;
+    friend avs::registry_coordinator;
 
     const ZERO_PK_HASH: vector<u8> = x"ad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5";
     const DST: vector<u8> = b"QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_";
@@ -34,6 +34,7 @@ module oracle::bls_apk_registry{
     const EPUBKEY_NOT_EXIST: u64 = 1108;
     const ESIGNATURE_INVALID: u64 = 1109;
     const EQUORUM_APK_UPDATE_INVALID_INDEX: u64 = 1110;
+    const EINVALID_TIMESTAMP: u64 = 1111;
 
     struct BLSApkRegistryStore has key {
         operator_to_pk_hash: SmartTable<address, vector<u8>>,
@@ -59,9 +60,9 @@ module oracle::bls_apk_registry{
         };
 
         // derive a resource account from signer to manage User share Account
-        let oracle_signer = &oracle_manager::get_signer();
-        let (bls_apk_registry_signer, signer_cap) = account::create_resource_account(oracle_signer, BLS_APK_REGISTRY_NAME);
-        oracle_manager::add_address(string::utf8(BLS_APK_REGISTRY_NAME), signer::address_of(&bls_apk_registry_signer));
+        let avs_signer = &avs_manager::get_signer();
+        let (bls_apk_registry_signer, signer_cap) = account::create_resource_account(avs_signer, BLS_APK_REGISTRY_NAME);
+        avs_manager::add_address(string::utf8(BLS_APK_REGISTRY_NAME), signer::address_of(&bls_apk_registry_signer));
         move_to(&bls_apk_registry_signer, BLSApkRegistryConfigs {
             signer_cap,
         });
@@ -69,13 +70,13 @@ module oracle::bls_apk_registry{
 
     #[view]
     public fun is_initialized(): bool{
-        oracle_manager::address_exists(string::utf8(BLS_APK_REGISTRY_NAME))
+        avs_manager::address_exists(string::utf8(BLS_APK_REGISTRY_NAME))
     }
 
     #[view]
     /// Return the address of the resource account that stores pool manager configs.
     public fun bls_apk_registry_address(): address {
-      oracle_manager::get_address(string::utf8(BLS_APK_REGISTRY_NAME))
+      avs_manager::get_address(string::utf8(BLS_APK_REGISTRY_NAME))
     }
 
     fun ensure_bls_apk_registry_store() acquires BLSApkRegistryConfigs{
@@ -151,7 +152,7 @@ module oracle::bls_apk_registry{
         smart_table::upsert(&mut store_mut.pk_hash_to_operator, serialize_pk_hash, operator_address);
         
         // TODO emit event
-        return pubkey_bytes
+        return serialize_pk_hash
     }
 
     fun update_quorum_apk(quorum_numbers: vector<u8>, pubkey: PublicKeyWithPoP, register: bool) acquires BLSApkRegistryStore {
@@ -227,16 +228,23 @@ module oracle::bls_apk_registry{
     }
 
     #[view]
-    public fun get_aggr_pk_hash_at_timestamp(quorum_number: u8, timestamp: u64, index: u64): vector<u8> acquires BLSApkRegistryStore {
+    public fun get_aggr_pk_hash_at_timestamp(quorum_number: u8, timestamp: u64): vector<u8> acquires BLSApkRegistryStore {
         let store = bls_apk_registry_store();
         assert!(smart_table::contains(&store.apk_history, quorum_number), EQUORUM_DOES_NOT_EXIST);
         let quorum_apk_update = smart_table::borrow(&store.apk_history, quorum_number);
-        assert!(vector::length(quorum_apk_update) - 1 > index, EQUORUM_APK_UPDATE_INVALID_INDEX);
-        let quorum_apk_update_at_index = vector::borrow(quorum_apk_update, index);
+        let quorum_apk_update_length = vector::length(quorum_apk_update);
 
-        let aggregate_pubkeys = option::borrow(&quorum_apk_update_at_index.aggregate_pubkeys);
+        for (i in 0..(quorum_apk_update_length)) {
+            let index = quorum_apk_update_length - i - 1;
+            let update_timestamp = vector::borrow(quorum_apk_update, i).update_timestamp;
+            if (update_timestamp < timestamp) {
+                let aggregate_pubkeys = option::borrow(&vector::borrow(quorum_apk_update, i).aggregate_pubkeys);
+                return aggregate_pubkey_to_bytes(aggregate_pubkeys)
+            }
+        };
 
-        return aggregate_pubkey_to_bytes(aggregate_pubkeys)
+        assert!(false, EINVALID_TIMESTAMP);
+        return vector::empty()
     }
     
     inline fun latest_apk_update_mut(quorum_number: u8): &mut ApkUpdate acquires BLSApkRegistryStore {

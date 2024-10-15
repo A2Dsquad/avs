@@ -26,7 +26,7 @@ func AptosClient(networkConfig aptos.NetworkConfig) *aptos.Client {
 	return client
 }
 
-func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config OperatorConfig, accountConfig AptosAccountConfig) (*Operator, error) {
+func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config OperatorConfig, accountConfig AptosAccountConfig, blsPriv []byte) (*Operator, error) {
 	operatorAccount, err := SignerFromConfig(accountConfig.configPath, accountConfig.profile)
 	if err != nil {
 		panic("Failed to create operator account:" + err.Error())
@@ -44,7 +44,7 @@ func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config O
 	registered := IsOperatorRegistered(client, avsAddress, operatorAccount.Address.String())
 
 	if !registered {
-		log.Println("Operator is not registered with A2D Oracle AVS, registering...")
+		log.Println("Operator is not registered with A2D avs AVS, registering...")
 
 		quorumCount := QuorumCount(client, avsAddress)
 		if quorumCount == 0 {
@@ -52,7 +52,7 @@ func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config O
 		}
 
 		quorumNumbers := quorumCount
-
+		fmt.Println("quorumNumbers:", quorumNumbers)
 		// Register Operator
 		// ignore error here because panic all the time
 		var priv crypto.BlsPrivateKey
@@ -93,14 +93,21 @@ func NewOperator(logger *zap.Logger, networkConfig aptos.NetworkConfig, config O
 	privKey.FromBytes(config.BlsPrivateKey)
 	operatorId := privKey.Inner.PublicKey().Marshal()
 
+	aggClient, err := NewAggregatorRpcClient(config.AggregatorIpPortAddr)
+	if err != nil {
+		return nil, fmt.Errorf("can not create new aggregator Rpc Client: %v", err)
+	}
+
 	// return Operator
 	operator := Operator{
-		logger:     logger,
-		account:    operatorAccount,
-		operatorId: operatorId,
-		avsAddress: avsAddress,
-		network:    networkConfig,
-		TaskQueue:  make(chan AVSTask, 1),
+		logger:        logger,
+		account:       operatorAccount,
+		operatorId:    operatorId,
+		avsAddress:    avsAddress,
+		BlsPrivateKey: blsPriv,
+		AggRpcClient:  *aggClient,
+		network:       networkConfig,
+		TaskQueue:     make(chan Task, 100),
 	}
 	return &operator, nil
 }

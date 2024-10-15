@@ -1,4 +1,4 @@
-module oracle::slashing_accounting {
+module avs::slashing_accounting {
   const SHARE_CONVERSION_SCALE: u64 = 1_000_000_000;
   const BIPS_FACTOR: u64 = 10000;
   const BIPS_FACTOR_SQUARE: u64 = 100000000;

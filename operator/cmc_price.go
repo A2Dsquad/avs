@@ -3,19 +3,16 @@ package operator
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 )
 
-func getCMCPrice(symbol string, convert string) interface{} {
-	config, err := loadConfig("./config.json")
-	if err != nil {
-		log.Print(err)
-		os.Exit(1)
-	}
+const API_KEY = "1547eae6-c29f-464a-ac29-e27fe94db841"
+
+func getCMCPrice(symbol string) float64 {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", "https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest", nil)
 	if err != nil {
@@ -25,10 +22,10 @@ func getCMCPrice(symbol string, convert string) interface{} {
 
 	q := url.Values{}
 	q.Add("symbol", symbol)
-	q.Add("convert_id", convert)
+	q.Add("convert", "USD")
 
 	req.Header.Set("Accepts", "application/json")
-	req.Header.Add("X-CMC_PRO_API_KEY", config.CmcApi)
+	req.Header.Add("X-CMC_PRO_API_KEY", API_KEY)
 	req.URL.RawQuery = q.Encode()
 
 	resp, err := client.Do(req)
@@ -37,17 +34,18 @@ func getCMCPrice(symbol string, convert string) interface{} {
 		os.Exit(1)
 	}
 	fmt.Println(resp.Status)
-	respBody, _ := ioutil.ReadAll(resp.Body)
-
+	respBody, _ := io.ReadAll(resp.Body)
 	var res map[string]interface{}
 	err = json.Unmarshal(respBody, &res)
 	if err != nil {
-		log.Print(err)
+		fmt.Println("Error unmarshal price: ", err)
 		os.Exit(1)
 	}
+	fmt.Println("data: ", res)
 
 	data := res["data"].(map[string]interface{})
-	btcData := data[symbol].([]interface{})
-	fmt.Println("Price of Bitcoin:", btcData[0].(map[string]interface{})["quote"].(map[string]interface{})["825"].(map[string]interface{})["price"])
-	return btcData[0].(map[string]interface{})["quote"].(map[string]interface{})["825"].(map[string]interface{})["price"]
+	symbolData := data[symbol].([]interface{})
+
+	fmt.Println("Price of ", symbol, ":", symbolData[0].(map[string]interface{})["quote"].(map[string]interface{})["USD"].(map[string]interface{})["price"])
+	return symbolData[0].(map[string]interface{})["quote"].(map[string]interface{})["USD"].(map[string]interface{})["price"].(float64)
 }

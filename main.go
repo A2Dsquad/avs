@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"oracle-avs/operator"
+	"avs/operator"
 	"os"
 
 	"github.com/aptos-labs/aptos-go-sdk"
